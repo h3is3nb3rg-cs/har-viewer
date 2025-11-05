@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { useHAR } from '@contexts/HARContext';
 import { formatBytes, formatDuration, formatTimestamp } from '@utils/harParser';
 import { JsonViewer, JsonSearchBar } from './JsonViewer';
+import { StatusBadge } from './shared/StatusBadge';
 
 type Tab = 'general' | 'headers' | 'cookies' | 'payload' | 'response' | 'timings';
 
@@ -141,25 +142,6 @@ const SectionHeader = styled.div`
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
 `;
 
-const StatusBadge = styled.span<{ $status: number }>`
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: ${({ theme }) => theme.borderRadius.sm};
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  background-color: ${({ theme, $status }) => {
-    if ($status >= 200 && $status < 300) return theme.colors.status2xx + '20';
-    if ($status >= 300 && $status < 400) return theme.colors.status3xx + '20';
-    if ($status >= 400 && $status < 500) return theme.colors.status4xx + '20';
-    return theme.colors.status5xx + '20';
-  }};
-  color: ${({ theme, $status }) => {
-    if ($status >= 200 && $status < 300) return theme.colors.status2xx;
-    if ($status >= 300 && $status < 400) return theme.colors.status3xx;
-    if ($status >= 400 && $status < 500) return theme.colors.status4xx;
-    return theme.colors.status5xx;
-  }};
-`;
 
 const TimingBar = styled.div`
   display: flex;

@@ -1,58 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, lazy, Suspense } from 'react';
 import styled from 'styled-components';
 import { useHAR } from '@contexts/HARContext';
 import { WaterfallRow } from './WaterfallRow';
-import { RequestInspector } from './RequestInspector';
+
+const RequestInspector = lazy(() => import('./RequestInspector').then(module => ({ default: module.RequestInspector })));
 import { calculateWaterfallData, getTimeMarkers } from '@utils/waterfallCalculations';
 import type { FilterType } from '../types/filters';
 import type { EntryWithMetadata } from '@types';
 import { useCustomFiltersStore } from '../stores/customFiltersStore';
 import { applyFilters } from '../utils/filterUtils';
-
-const Wrapper = styled.div`
-  display: flex;
-  flex: 1;
-  gap: ${({ theme }) => theme.spacing.md};
-  overflow: hidden;
-`;
-
-const ListPanel = styled.div`
-  display: flex;
-  flex-direction: column;
-  flex: 0 0 25%;
-  min-width: 300px;
-  background-color: ${({ theme }) => theme.colors.background};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.md};
-  overflow: hidden;
-`;
-
-const DetailsPanel = styled.div`
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  background-color: ${({ theme }) => theme.colors.background};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.md};
-  overflow: hidden;
-`;
-
-const EmptyDetails = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: ${({ theme }) => theme.colors.textMuted};
-  font-size: ${({ theme }) => theme.typography.fontSize.lg};
-`;
-
-const Container = styled.div`
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  background-color: ${({ theme }) => theme.colors.background};
-  overflow: hidden;
-`;
+import { Wrapper, ListPanel, DetailsPanel, Container } from './shared/ViewLayout';
 
 const Header = styled.div`
   display: grid;
@@ -115,6 +72,15 @@ const EmptyState = styled.div`
   padding: ${({ theme }) => theme.spacing.xxl};
   text-align: center;
   color: ${({ theme }) => theme.colors.textMuted};
+`;
+
+const LoadingContainer = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: ${({ theme }) => theme.colors.textMuted};
+  font-size: ${({ theme }) => theme.typography.fontSize.md};
 `;
 
 const Legend = styled.div`
@@ -247,7 +213,9 @@ export const WaterfallChart = ({ activeFilter, searchTerm }: WaterfallChartProps
       </ListPanel>
 
       <DetailsPanel>
-        <RequestInspector />
+        <Suspense fallback={<LoadingContainer>Loading details...</LoadingContainer>}>
+          <RequestInspector />
+        </Suspense>
       </DetailsPanel>
     </Wrapper>
   );

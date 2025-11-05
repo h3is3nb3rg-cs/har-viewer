@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import styled from 'styled-components';
 import { ThemeToggle } from '@components/ThemeToggle';
 import { FileUpload } from '@components/FileUpload';
@@ -165,6 +165,10 @@ function App() {
     return calculateFilterCounts(entries, customFilters);
   }, [entries, customFilters]);
 
+  const handleViewTable = useCallback(() => setViewMode('table'), []);
+  const handleViewWaterfall = useCallback(() => setViewMode('waterfall'), []);
+  const handleViewStatistics = useCallback(() => setViewMode('statistics'), []);
+
   return (
     <AppContainer>
       <Header>
@@ -178,13 +182,13 @@ function App() {
                 {fileName} • {entries.length} requests
               </FileInfo>
               <ViewToggle>
-                <ViewButton $active={viewMode === 'table'} onClick={() => setViewMode('table')}>
+                <ViewButton $active={viewMode === 'table'} onClick={handleViewTable}>
                   📋 Table
                 </ViewButton>
-                <ViewButton $active={viewMode === 'waterfall'} onClick={() => setViewMode('waterfall')}>
+                <ViewButton $active={viewMode === 'waterfall'} onClick={handleViewWaterfall}>
                   🌊 Waterfall
                 </ViewButton>
-                <ViewButton $active={viewMode === 'statistics'} onClick={() => setViewMode('statistics')}>
+                <ViewButton $active={viewMode === 'statistics'} onClick={handleViewStatistics}>
                   📊 Statistics
                 </ViewButton>
               </ViewToggle>

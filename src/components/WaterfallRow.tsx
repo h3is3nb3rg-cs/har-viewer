@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import styled from 'styled-components';
 import type { EntryWithMetadata } from '@types';
 import type { WaterfallBar } from '@utils/waterfallCalculations';
@@ -132,7 +133,7 @@ const getSegmentTooltip = (type: string, duration: number): string => {
   return `${typeLabel}: ${formatDuration(duration)}`;
 };
 
-export const WaterfallRow = ({ entry, bar, isSelected, onClick }: WaterfallRowProps) => {
+export const WaterfallRow = memo(({ entry, bar, isSelected, onClick }: WaterfallRowProps) => {
   return (
     <RowContainer $isSelected={isSelected} onClick={onClick}>
       <Index>{entry.index + 1}</Index>
@@ -155,4 +156,6 @@ export const WaterfallRow = ({ entry, bar, isSelected, onClick }: WaterfallRowPr
       <Time>{formatDuration(entry.time)}</Time>
     </RowContainer>
   );
-};
+});
+
+WaterfallRow.displayName = 'WaterfallRow';

@@ -1,6 +1,7 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useMemo, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import type { HAR, Entry, EntryWithMetadata } from '@types';
+import type { HAR, EntryWithMetadata } from '@types';
+import { getResourceType } from '@utils/resourceTypeDetector';
 
 interface HARContextType {
   har: HAR | null;
@@ -33,7 +34,7 @@ export const HARProvider = ({ children }: HARProviderProps) => {
   const [selectedEntry, setSelectedEntry] = useState<EntryWithMetadata | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
 
-  const setHAR = (newHAR: HAR, name: string) => {
+  const setHAR = useCallback((newHAR: HAR, name: string) => {
     setHARState(newHAR);
     setFileName(name);
 
@@ -53,51 +54,31 @@ export const HARProvider = ({ children }: HARProviderProps) => {
 
     setEntries(processedEntries);
     setSelectedEntry(null);
-  };
+  }, []);
 
-  const selectEntry = (entry: EntryWithMetadata | null) => {
+  const selectEntry = useCallback((entry: EntryWithMetadata | null) => {
     setSelectedEntry(entry);
-  };
+  }, []);
 
-  const clearHAR = () => {
+  const clearHAR = useCallback(() => {
     setHARState(null);
     setEntries([]);
     setSelectedEntry(null);
     setFileName(null);
-  };
+  }, []);
 
-  return (
-    <HARContext.Provider
-      value={{
-        har,
-        entries,
-        selectedEntry,
-        fileName,
-        setHAR,
-        selectEntry,
-        clearHAR,
-      }}
-    >
-      {children}
-    </HARContext.Provider>
+  const value = useMemo(
+    () => ({
+      har,
+      entries,
+      selectedEntry,
+      fileName,
+      setHAR,
+      selectEntry,
+      clearHAR,
+    }),
+    [har, entries, selectedEntry, fileName, setHAR, selectEntry, clearHAR]
   );
+
+  return <HARContext.Provider value={value}>{children}</HARContext.Provider>;
 };
-
-// Helper function to determine resource type
-function getResourceType(entry: Entry): EntryWithMetadata['resourceType'] {
-  const mimeType = entry.response.content.mimeType.toLowerCase();
-  const url = entry.request.url.toLowerCase();
-
-  if (mimeType.includes('html')) return 'html';
-  if (mimeType.includes('css')) return 'css';
-  if (mimeType.includes('javascript') || mimeType.includes('ecmascript')) return 'javascript';
-  if (mimeType.includes('json') || mimeType.includes('xml')) return 'xhr';
-  if (mimeType.startsWith('image/')) return 'image';
-  if (mimeType.startsWith('font/') || mimeType.includes('woff') || mimeType.includes('ttf')) return 'font';
-  if (mimeType.startsWith('video/') || mimeType.startsWith('audio/')) return 'media';
-  if (url.includes('manifest.json') || mimeType.includes('manifest')) return 'manifest';
-  if (url.includes('websocket') || entry.response.status === 101) return 'websocket';
-  if (mimeType.includes('fetch')) return 'fetch';
-
-  return 'other';
-}

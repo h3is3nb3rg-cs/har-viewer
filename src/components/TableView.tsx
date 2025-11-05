@@ -1,57 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, lazy, Suspense } from 'react';
 import styled from 'styled-components';
 import { useHAR } from '@contexts/HARContext';
-import { RequestInspector } from './RequestInspector';
+
+const RequestInspector = lazy(() => import('./RequestInspector').then(module => ({ default: module.RequestInspector })));
 import type { FilterType } from '../types/filters';
 import type { EntryWithMetadata } from '@types';
 import { formatDuration, formatBytes } from '@utils/harParser';
 import { useCustomFiltersStore } from '../stores/customFiltersStore';
 import { applyFilters } from '../utils/filterUtils';
-
-const Wrapper = styled.div`
-  display: flex;
-  flex: 1;
-  gap: ${({ theme }) => theme.spacing.md};
-  overflow: hidden;
-`;
-
-const ListPanel = styled.div`
-  display: flex;
-  flex-direction: column;
-  flex: 0 0 25%;
-  min-width: 300px;
-  background-color: ${({ theme }) => theme.colors.background};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.md};
-  overflow: hidden;
-`;
-
-const DetailsPanel = styled.div`
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  background-color: ${({ theme }) => theme.colors.background};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.md};
-  overflow: hidden;
-`;
-
-const EmptyDetails = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: ${({ theme }) => theme.colors.textMuted};
-  font-size: ${({ theme }) => theme.typography.fontSize.lg};
-`;
-
-const Container = styled.div`
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  background-color: ${({ theme }) => theme.colors.background};
-  overflow: hidden;
-`;
+import { Wrapper, ListPanel, DetailsPanel, Container } from './shared/ViewLayout';
+import { StatusBadge } from './shared/StatusBadge';
 
 const TableWrapper = styled.div`
   flex: 1;
@@ -151,36 +109,6 @@ const MethodBadge = styled.span<{ $method: string }>`
   }};
 `;
 
-const StatusBadge = styled.span.attrs<{ $status: number }>(({ theme, $status }) => {
-  let bgColor, textColor;
-  if ($status >= 200 && $status < 300) {
-    bgColor = theme.colors.status2xx + '20';
-    textColor = theme.colors.status2xx;
-  } else if ($status >= 300 && $status < 400) {
-    bgColor = theme.colors.status3xx + '20';
-    textColor = theme.colors.status3xx;
-  } else if ($status >= 400 && $status < 500) {
-    bgColor = theme.colors.status4xx + '20';
-    textColor = theme.colors.status4xx;
-  } else {
-    bgColor = theme.colors.status5xx + '20';
-    textColor = theme.colors.status5xx;
-  }
-  return {
-    style: {
-      backgroundColor: bgColor,
-      color: textColor,
-    },
-  };
-})<{ $status: number }>`
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: ${({ theme }) => theme.borderRadius.sm};
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  font-family: ${({ theme }) => theme.typography.fontFamilyMono};
-`;
-
 const EndpointCell = styled.div`
   display: flex;
   flex-direction: column;
@@ -209,6 +137,15 @@ const EmptyState = styled.div`
   padding: ${({ theme }) => theme.spacing.xxl};
   text-align: center;
   color: ${({ theme }) => theme.colors.textMuted};
+`;
+
+const LoadingContainer = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: ${({ theme }) => theme.colors.textMuted};
+  font-size: ${({ theme }) => theme.typography.fontSize.md};
 `;
 
 interface TableViewProps {
@@ -289,7 +226,9 @@ export const TableView = ({ activeFilter, searchTerm }: TableViewProps) => {
       </ListPanel>
 
       <DetailsPanel>
-        <RequestInspector />
+        <Suspense fallback={<LoadingContainer>Loading details...</LoadingContainer>}>
+          <RequestInspector />
+        </Suspense>
       </DetailsPanel>
     </Wrapper>
   );

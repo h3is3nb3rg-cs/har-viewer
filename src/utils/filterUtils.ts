@@ -91,12 +91,14 @@ export function applyFilters(
 }
 
 /**
- * Calculate filter counts for all filters
+ * Calculate filter counts for all filters using a single-pass algorithm
+ * Optimized from O(n*m) to O(n) complexity
  */
 export function calculateFilterCounts(
   entries: EntryWithMetadata[],
   customFilters: CustomFilter[]
 ): Record<string, number> {
+  // Initialize counts for all filters
   const counts: Record<string, number> = {
     all: entries.length,
     '4xx': 0,
@@ -104,28 +106,65 @@ export function calculateFilterCounts(
     'other-errors': 0,
   };
 
-  // Calculate counts for built-in filters
-  entries.forEach((entry) => {
-    if (entry.response.status >= 400 && entry.response.status < 500) {
-      counts['4xx']++;
-    }
-    if (entry.response.status >= 500 && entry.response.status < 600) {
-      counts['5xx']++;
-    }
-    if (
-      entry.response.status < 200 ||
-      (entry.response.status >= 300 && entry.response.status < 400) ||
-      entry.response.status >= 600
-    ) {
-      counts['other-errors']++;
-    }
+  // Initialize counts for custom filters
+  customFilters.forEach((filter) => {
+    counts[filter.id] = 0;
   });
 
-  // Calculate counts for custom filters
-  customFilters.forEach((filter) => {
-    counts[filter.id] = entries.filter((entry) =>
-      matchesCustomFilter(entry.request.url, filter)
-    ).length;
+  // Pre-compile regex patterns for better performance
+  const compiledFilters = customFilters.map((filter) => {
+    if (filter.patternType === 'regex') {
+      try {
+        return {
+          ...filter,
+          compiledRegex: new RegExp(filter.pattern, 'i'),
+        };
+      } catch (error) {
+        console.warn(`Invalid regex pattern for filter "${filter.name}":`, error);
+        return { ...filter, compiledRegex: null };
+      }
+    }
+    return { ...filter, compiledRegex: null };
+  });
+
+  // Single-pass loop through all entries
+  entries.forEach((entry) => {
+    const status = entry.response.status;
+    const url = entry.request.url;
+
+    // Count built-in filters
+    if (status >= 400 && status < 500) {
+      counts['4xx']++;
+    }
+    if (status >= 500 && status < 600) {
+      counts['5xx']++;
+    }
+    if (status < 200 || (status >= 300 && status < 400) || status >= 600) {
+      counts['other-errors']++;
+    }
+
+    // Count custom filters
+    compiledFilters.forEach((filter) => {
+      try {
+        let matches = false;
+
+        if (filter.patternType === 'path') {
+          // Path-based matching
+          const urlObj = new URL(url);
+          const path = urlObj.pathname;
+          matches = path.toLowerCase().includes(filter.pattern.toLowerCase());
+        } else if (filter.compiledRegex) {
+          // Regex-based matching with pre-compiled regex
+          matches = filter.compiledRegex.test(url);
+        }
+
+        if (matches) {
+          counts[filter.id]++;
+        }
+      } catch (error) {
+        // Silently skip entries that cause errors
+      }
+    });
   });
 
   return counts;
