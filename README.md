@@ -39,10 +39,11 @@ HAR Viewer is a powerful, client-side tool for analyzing HAR files with:
 
 ## ✨ Features
 
-### 🎨 Dual Visualization Modes
+### 🎨 Multiple Visualization Modes
 
+- **Table View**: Sortable, filterable tabular display of all network requests with inline details
 - **Waterfall Chart**: Timeline-based visualization with color-coded timing phases (DNS, Connect, SSL, Send, Wait, Receive)
-- **Table View**: Sortable, filterable tabular display of all network requests
+- **Statistics Dashboard**: Comprehensive performance metrics and request breakdowns
 
 ### 🔍 Advanced Filtering System
 
@@ -72,9 +73,11 @@ Multi-tab interface for detailed request analysis:
 - **General**: URL, method, status, size, timing summary
 - **Headers**: Request and response headers
 - **Cookies**: Request and response cookies
-- **Payload**: POST data with JSON viewer
-- **Response**: Response body with JSON viewer
+- **Payload**: POST data with JSON viewer and inline search
+- **Response**: Response body with JSON viewer and inline search
 - **Timings**: Detailed timing breakdown with visual bars
+
+The inspector appears as a split panel when you select a request, with the list on the left (25%) and details on the right (75%). Both views support horizontal scrolling for responsive layouts.
 
 ### 📊 Performance Dashboard
 
@@ -177,18 +180,24 @@ App (Root)
     │   └── FilterManageModal
     │
     └── Main Content
-        ├── SummaryDashboard (collapsible)
         └── View (conditional)
+            ├── TableView
+            │   ├── Table (with horizontal scroll)
+            │   └── RequestInspector (split panel)
+            │       ├── Tabs (General, Headers, Cookies, Payload, Response, Timings)
+            │       ├── JsonViewer (with inline search)
+            │       └── JsonBreadcrumb
+            │
             ├── WaterfallChart
             │   ├── WaterfallRow (×N)
-            │   │   └── RequestInspector (tabs)
-            │   │       ├── JsonViewer
-            │   │       └── JsonBreadcrumb
+            │   │   └── RequestInspector (split panel)
             │   └── Legend
             │
-            └── TableView
-                └── ExpandableRows
-                    └── Details
+            └── SummaryDashboard
+                ├── Total requests & domains
+                ├── Size metrics (compressed/uncompressed)
+                ├── Timing breakdown
+                └── Request type breakdown
 ```
 
 ### Data Flow
@@ -442,8 +451,9 @@ The waterfall chart shows request timing in color-coded segments:
 
 Toggle between visualizations using the view buttons in the header:
 
-- **📊 Waterfall**: Timeline-based visualization
-- **📋 Table**: Tabular data view with expandable rows
+- **📋 Table**: Tabular data view with split-panel details (default view)
+- **🌊 Waterfall**: Timeline-based visualization with request breakdown
+- **📊 Statistics**: Performance dashboard with comprehensive metrics
 
 ### Using the Request Inspector
 

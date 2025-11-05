@@ -2,13 +2,32 @@ import { useMemo } from 'react';
 import styled from 'styled-components';
 import { useHAR } from '@contexts/HARContext';
 import { WaterfallRow } from './WaterfallRow';
+import { RequestInspector } from './RequestInspector';
 import { calculateWaterfallData, getTimeMarkers } from '@utils/waterfallCalculations';
 import type { FilterType } from '../types/filters';
 import type { EntryWithMetadata } from '@types';
 import { useCustomFiltersStore } from '../stores/customFiltersStore';
 import { applyFilters } from '../utils/filterUtils';
 
-const Container = styled.div`
+const Wrapper = styled.div`
+  display: flex;
+  flex: 1;
+  gap: ${({ theme }) => theme.spacing.md};
+  overflow: hidden;
+`;
+
+const ListPanel = styled.div`
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 25%;
+  min-width: 300px;
+  background-color: ${({ theme }) => theme.colors.background};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.borderRadius.md};
+  overflow: hidden;
+`;
+
+const DetailsPanel = styled.div`
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -18,9 +37,26 @@ const Container = styled.div`
   overflow: hidden;
 `;
 
+const EmptyDetails = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: ${({ theme }) => theme.colors.textMuted};
+  font-size: ${({ theme }) => theme.typography.fontSize.lg};
+`;
+
+const Container = styled.div`
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  background-color: ${({ theme }) => theme.colors.background};
+  overflow: hidden;
+`;
+
 const Header = styled.div`
   display: grid;
-  grid-template-columns: 50px 300px 1fr 100px;
+  grid-template-columns: 50px minmax(200px, 300px) 1fr 100px;
   align-items: center;
   padding: ${({ theme }) => theme.spacing.sm};
   background-color: ${({ theme }) => theme.colors.backgroundSecondary};
@@ -31,6 +67,7 @@ const Header = styled.div`
   position: sticky;
   top: 0;
   z-index: 10;
+  min-width: 600px;
 `;
 
 const HeaderCell = styled.div<{ $align?: string }>`
@@ -71,7 +108,7 @@ const TimeMarker = styled.div<{ $position: number }>`
 const Body = styled.div`
   flex: 1;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: auto;
 `;
 
 const EmptyState = styled.div`
@@ -134,8 +171,8 @@ export const WaterfallChart = ({ activeFilter, searchTerm }: WaterfallChartProps
     );
   }
 
-  return (
-      <Container>
+  const listContent = (
+    <>
       <Header>
         <HeaderCell $align="center">#</HeaderCell>
         <HeaderCell>Name</HeaderCell>
@@ -192,6 +229,26 @@ export const WaterfallChart = ({ activeFilter, searchTerm }: WaterfallChartProps
           Receive
         </LegendItem>
       </Legend>
-    </Container>
+    </>
+  );
+
+  if (!selectedEntry) {
+    return (
+      <Container>
+        {listContent}
+      </Container>
+    );
+  }
+
+  return (
+    <Wrapper>
+      <ListPanel>
+        {listContent}
+      </ListPanel>
+
+      <DetailsPanel>
+        <RequestInspector />
+      </DetailsPanel>
+    </Wrapper>
   );
 };

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import styled from 'styled-components';
 import { useHAR } from '@contexts/HARContext';
 import { formatBytes, formatDuration, formatTimestamp } from '@utils/harParser';
+import { JsonViewer, JsonSearchBar } from './JsonViewer';
 
 type Tab = 'general' | 'headers' | 'cookies' | 'payload' | 'response' | 'timings';
 
@@ -71,6 +72,13 @@ const SectionTitle = styled.h3`
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
 `;
 
+const SectionHeaderTitle = styled.h3`
+  font-size: ${({ theme }) => theme.typography.fontSize.md};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+  color: ${({ theme }) => theme.colors.text};
+  margin: 0;
+`;
+
 const InfoGrid = styled.div`
   display: grid;
   grid-template-columns: 200px 1fr;
@@ -121,6 +129,16 @@ const CodeBlock = styled.pre`
   color: ${({ theme }) => theme.colors.text};
   max-height: 500px;
   overflow-y: auto;
+`;
+
+const SectionHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${({ theme }) => theme.spacing.md};
+  margin-bottom: ${({ theme }) => theme.spacing.md};
+  padding-bottom: ${({ theme }) => theme.spacing.sm};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
 `;
 
 const StatusBadge = styled.span<{ $status: number }>`
@@ -181,6 +199,10 @@ const TimingBarFill = styled.div<{ $width: number; $color: string }>`
 export const RequestInspector = () => {
   const { selectedEntry } = useHAR();
   const [activeTab, setActiveTab] = useState<Tab>('general');
+  const [payloadSearchTerm, setPayloadSearchTerm] = useState('');
+  const [payloadMatchIndex, setPayloadMatchIndex] = useState(0);
+  const [responseSearchTerm, setResponseSearchTerm] = useState('');
+  const [responseMatchIndex, setResponseMatchIndex] = useState(0);
 
   if (!selectedEntry) {
     return (
@@ -358,15 +380,53 @@ export const RequestInspector = () => {
       return <EmptyState>No payload data</EmptyState>;
     }
 
+    const isJSON = request.postData.mimeType.includes('application/json');
+    let jsonData = null;
+
+    if (isJSON && request.postData.text) {
+      try {
+        jsonData = JSON.parse(request.postData.text);
+      } catch (e) {
+        // Not valid JSON, will fall back to CodeBlock
+      }
+    }
+
     return (
       <Section>
-        <SectionTitle>Request Payload</SectionTitle>
-        <InfoGrid>
-          <Label>MIME Type:</Label>
-          <Value>{request.postData.mimeType}</Value>
-        </InfoGrid>
-        {request.postData.text && (
-          <CodeBlock>{request.postData.text}</CodeBlock>
+        {jsonData ? (
+          <>
+            <SectionHeader>
+              <SectionHeaderTitle>Request Payload</SectionHeaderTitle>
+              <JsonSearchBar
+                searchTerm={payloadSearchTerm}
+                onSearchChange={setPayloadSearchTerm}
+                data={jsonData}
+                currentMatchIndex={payloadMatchIndex}
+                onMatchIndexChange={setPayloadMatchIndex}
+              />
+            </SectionHeader>
+            <InfoGrid>
+              <Label>MIME Type:</Label>
+              <Value>{request.postData.mimeType}</Value>
+            </InfoGrid>
+            <JsonViewer
+              data={jsonData}
+              searchTerm={payloadSearchTerm}
+              currentMatchIndex={payloadMatchIndex}
+              showBreadcrumb={true}
+            />
+          </>
+        ) : (
+          <>
+            <SectionTitle>Request Payload</SectionTitle>
+            <InfoGrid>
+              <Label>MIME Type:</Label>
+              <Value>{request.postData.mimeType}</Value>
+            </InfoGrid>
+            {request.postData.text ? (
+              <CodeBlock>{request.postData.text}</CodeBlock>
+            ) : null}
+          </>
         )}
         {request.postData.params && request.postData.params.length > 0 && (
           <Table>
@@ -393,28 +453,74 @@ export const RequestInspector = () => {
   const renderResponseTab = () => {
     const { content } = response;
 
+    const isJSON = content.mimeType.includes('application/json') || content.mimeType.includes('application/hal+json');
+    let jsonData = null;
+
+    if (isJSON && content.text && content.encoding !== 'base64') {
+      try {
+        jsonData = JSON.parse(content.text);
+      } catch (e) {
+        // Not valid JSON, will fall back to CodeBlock
+      }
+    }
+
     return (
       <Section>
-        <SectionTitle>Response Content</SectionTitle>
-        <InfoGrid>
-          <Label>MIME Type:</Label>
-          <Value>{content.mimeType}</Value>
-          <Label>Size:</Label>
-          <Value>{formatBytes(content.size)}</Value>
-          {content.encoding && (
-            <>
-              <Label>Encoding:</Label>
-              <Value>{content.encoding}</Value>
-            </>
-          )}
-        </InfoGrid>
-        {content.text && content.encoding !== 'base64' && (
-          <CodeBlock>{content.text}</CodeBlock>
+        {jsonData ? (
+          <>
+            <SectionHeader>
+              <SectionHeaderTitle>Response Content</SectionHeaderTitle>
+              <JsonSearchBar
+                searchTerm={responseSearchTerm}
+                onSearchChange={setResponseSearchTerm}
+                data={jsonData}
+                currentMatchIndex={responseMatchIndex}
+                onMatchIndexChange={setResponseMatchIndex}
+              />
+            </SectionHeader>
+            <InfoGrid>
+              <Label>MIME Type:</Label>
+              <Value>{content.mimeType}</Value>
+              <Label>Size:</Label>
+              <Value>{formatBytes(content.size)}</Value>
+              {content.encoding && (
+                <>
+                  <Label>Encoding:</Label>
+                  <Value>{content.encoding}</Value>
+                </>
+              )}
+            </InfoGrid>
+            <JsonViewer
+              data={jsonData}
+              searchTerm={responseSearchTerm}
+              currentMatchIndex={responseMatchIndex}
+              showBreadcrumb={true}
+            />
+          </>
+        ) : (
+          <>
+            <SectionTitle>Response Content</SectionTitle>
+            <InfoGrid>
+              <Label>MIME Type:</Label>
+              <Value>{content.mimeType}</Value>
+              <Label>Size:</Label>
+              <Value>{formatBytes(content.size)}</Value>
+              {content.encoding && (
+                <>
+                  <Label>Encoding:</Label>
+                  <Value>{content.encoding}</Value>
+                </>
+              )}
+            </InfoGrid>
+            {content.text && content.encoding !== 'base64' ? (
+              <CodeBlock>{content.text}</CodeBlock>
+            ) : content.encoding === 'base64' ? (
+              <EmptyState>Binary content (base64 encoded)</EmptyState>
+            ) : (
+              <EmptyState>No content available</EmptyState>
+            )}
+          </>
         )}
-        {content.encoding === 'base64' && (
-          <EmptyState>Binary content (base64 encoded)</EmptyState>
-        )}
-        {!content.text && <EmptyState>No content available</EmptyState>}
       </Section>
     );
   };

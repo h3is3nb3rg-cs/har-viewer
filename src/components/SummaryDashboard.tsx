@@ -1,57 +1,13 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import styled from 'styled-components';
 import { useHAR } from '@contexts/HARContext';
 import { formatBytes, formatDuration } from '@utils/harParser';
 import type { ResourceType, SummaryStats } from '@types';
 
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  margin-bottom: ${({ theme }) => theme.spacing.md};
-`;
-
-const Header = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: ${({ theme }) => theme.spacing.md};
-  background-color: ${({ theme }) => theme.colors.backgroundSecondary};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.md};
-  cursor: pointer;
-  transition: background-color ${({ theme }) => theme.transitions.fast};
-
-  &:hover {
-    background-color: ${({ theme }) => theme.colors.hover};
-  }
-`;
-
-const HeaderTitle = styled.h3`
-  margin: 0;
-  font-size: ${({ theme }) => theme.typography.fontSize.md};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  color: ${({ theme }) => theme.colors.text};
-`;
-
-const ToggleIcon = styled.span<{ $isCollapsed: boolean }>`
-  display: inline-block;
-  font-size: ${({ theme }) => theme.typography.fontSize.lg};
-  transition: transform ${({ theme }) => theme.transitions.fast};
-  transform: ${({ $isCollapsed }) => ($isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)')};
-  color: ${({ theme }) => theme.colors.textSecondary};
-`;
-
-const CollapseContainer = styled.div<{ $isCollapsed: boolean }>`
-  max-height: ${({ $isCollapsed }) => ($isCollapsed ? '0' : '2000px')};
-  overflow: hidden;
-  transition: max-height ${({ theme }) => theme.transitions.normal};
-`;
-
 const Container = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: ${({ theme }) => theme.spacing.md};
-  padding-top: ${({ theme }) => theme.spacing.md};
 `;
 
 const Card = styled.div`
@@ -119,14 +75,6 @@ const BreakdownValue = styled.div`
 
 export const SummaryDashboard = () => {
   const { entries } = useHAR();
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    const saved = localStorage.getItem('summary-dashboard-collapsed');
-    return saved ? JSON.parse(saved) : false;
-  });
-
-  useEffect(() => {
-    localStorage.setItem('summary-dashboard-collapsed', JSON.stringify(isCollapsed));
-  }, [isCollapsed]);
 
   const stats = useMemo((): SummaryStats => {
     if (entries.length === 0) {
@@ -235,13 +183,7 @@ export const SummaryDashboard = () => {
     .slice(0, 6);
 
   return (
-    <Wrapper>
-      <Header onClick={() => setIsCollapsed(!isCollapsed)}>
-        <HeaderTitle>Summary Statistics</HeaderTitle>
-        <ToggleIcon $isCollapsed={isCollapsed}>▼</ToggleIcon>
-      </Header>
-      <CollapseContainer $isCollapsed={isCollapsed}>
-        <Container>
+    <Container>
       <Card>
         <CardTitle>Total Requests</CardTitle>
         <CardValue>{stats.totalRequests}</CardValue>
@@ -314,7 +256,5 @@ export const SummaryDashboard = () => {
         </BreakdownGrid>
       </BreakdownCard>
     </Container>
-      </CollapseContainer>
-    </Wrapper>
   );
 };

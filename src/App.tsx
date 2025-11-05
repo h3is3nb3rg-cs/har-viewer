@@ -5,7 +5,7 @@ import { FileUpload } from '@components/FileUpload';
 import { SummaryDashboard } from '@components/SummaryDashboard';
 import { WaterfallChart } from '@components/WaterfallChart';
 import { TableView } from '@components/TableView';
-import { Sidebar } from '@components/Sidebar';
+import { FilterBar } from '@components/FilterBar';
 import { useHAR } from '@contexts/HARContext';
 import type { FilterType } from './types/filters';
 import { useCustomFiltersStore } from './stores/customFiltersStore';
@@ -104,13 +104,7 @@ const ViewButton = styled.button.attrs<{ $active: boolean }>(({ theme, $active }
   }
 `;
 
-const MainContent = styled.div`
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-`;
-
-const Main = styled.main`
+const MainContent = styled.main`
   flex: 1;
   padding: ${({ theme }) => theme.spacing.xl};
   display: flex;
@@ -158,14 +152,14 @@ const Placeholder = styled.div`
   color: ${({ theme }) => theme.colors.textMuted};
 `;
 
-type ViewMode = 'waterfall' | 'table';
+type ViewMode = 'statistics' | 'waterfall' | 'table';
 
 function App() {
   const { har, entries, fileName, clearHAR } = useHAR();
   const { filters: customFilters } = useCustomFiltersStore();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [viewMode, setViewMode] = useState<ViewMode>('waterfall');
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
 
   const filterCounts = useMemo(() => {
     return calculateFilterCounts(entries, customFilters);
@@ -188,7 +182,10 @@ function App() {
                   📋 Table
                 </ViewButton>
                 <ViewButton $active={viewMode === 'waterfall'} onClick={() => setViewMode('waterfall')}>
-                  📊 Waterfall
+                  🌊 Waterfall
+                </ViewButton>
+                <ViewButton $active={viewMode === 'statistics'} onClick={() => setViewMode('statistics')}>
+                  📊 Statistics
                 </ViewButton>
               </ViewToggle>
               <ClearButton onClick={clearHAR}>Clear</ClearButton>
@@ -197,37 +194,34 @@ function App() {
         </HeaderLeft>
         <ThemeToggle />
       </Header>
+      {har && (
+        <FilterBar
+          activeFilter={activeFilter}
+          onFilterChange={setActiveFilter}
+          filterCounts={filterCounts}
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+        />
+      )}
       <MainContent>
         {!har ? (
-          <Main>
-            <EmptyState>
-              <EmptyStateTitle>Welcome to HAR Viewer</EmptyStateTitle>
-              <EmptyStateText>
-                Upload a HAR file to visualize network requests and performance metrics
-              </EmptyStateText>
-              <FileUpload />
-            </EmptyState>
-          </Main>
+          <EmptyState>
+            <EmptyStateTitle>Welcome to HAR Viewer</EmptyStateTitle>
+            <EmptyStateText>
+              Upload a HAR file to visualize network requests and performance metrics
+            </EmptyStateText>
+            <FileUpload />
+          </EmptyState>
         ) : (
-          <>
-            <Sidebar
-              activeFilter={activeFilter}
-              onFilterChange={setActiveFilter}
-              filterCounts={filterCounts}
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-            />
-            <Main>
-              <ContentContainer>
-                <SummaryDashboard />
-                {viewMode === 'waterfall' ? (
-                  <WaterfallChart activeFilter={activeFilter} searchTerm={searchTerm} />
-                ) : (
-                  <TableView activeFilter={activeFilter} searchTerm={searchTerm} />
-                )}
-              </ContentContainer>
-            </Main>
-          </>
+          <ContentContainer>
+            {viewMode === 'table' ? (
+              <TableView activeFilter={activeFilter} searchTerm={searchTerm} />
+            ) : viewMode === 'waterfall' ? (
+              <WaterfallChart activeFilter={activeFilter} searchTerm={searchTerm} />
+            ) : (
+              <SummaryDashboard />
+            )}
+          </ContentContainer>
         )}
       </MainContent>
     </AppContainer>

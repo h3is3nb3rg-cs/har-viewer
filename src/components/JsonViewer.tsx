@@ -8,6 +8,11 @@ const Wrapper = styled.div`
   gap: ${({ theme }) => theme.spacing.sm};
 `;
 
+const BreadcrumbWrapper = styled.div`
+  margin-top: ${({ theme }) => theme.spacing.md};
+  margin-bottom: ${({ theme }) => theme.spacing.md};
+`;
+
 const SearchContainer = styled.div`
   position: relative;
 `;
@@ -642,7 +647,9 @@ export const JsonViewer = ({
   return (
     <Wrapper>
       {showBreadcrumb && displayPath && (
-        <JsonBreadcrumb path={displayPath} onSegmentClick={handleBreadcrumbClick} />
+        <BreadcrumbWrapper>
+          <JsonBreadcrumb path={displayPath} onSegmentClick={handleBreadcrumbClick} />
+        </BreadcrumbWrapper>
       )}
       <Container>{renderJson(parsedData)}</Container>
     </Wrapper>

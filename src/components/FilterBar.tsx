@@ -1,101 +1,311 @@
+import { useState } from 'react';
 import styled from 'styled-components';
+import type { FilterType } from '../types/filters';
+import { BUILT_IN_FILTERS } from '../types/filters';
+import { useCustomFiltersStore } from '../stores/customFiltersStore';
+import { FilterManageModal } from './FilterManageModal';
+import type { CustomFilter } from '../types/filters';
 
-const Container = styled.div`
+const FilterBarContainer = styled.div`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.md};
-  padding: ${({ theme }) => theme.spacing.md};
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.xl};
   background-color: ${({ theme }) => theme.colors.backgroundSecondary};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.md};
-  margin-bottom: ${({ theme }) => theme.spacing.md};
-`;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  box-shadow: ${({ theme }) => theme.shadows.sm};
+  min-height: 56px;
+  overflow-x: auto;
 
-const Label = styled.label`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  color: ${({ theme }) => theme.colors.text};
-  cursor: pointer;
-  user-select: none;
-`;
+  /* Custom scrollbar */
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
 
-const ToggleSwitch = styled.div<{ $checked: boolean }>`
-  position: relative;
-  width: 44px;
-  height: 24px;
-  background-color: ${({ theme, $checked }) =>
-    $checked ? theme.colors.primary : theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.full};
-  transition: background-color ${({ theme }) => theme.transitions.fast};
-  cursor: pointer;
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
 
-  &::after {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: ${({ $checked }) => ($checked ? '22px' : '2px')};
-    width: 20px;
-    height: 20px;
-    background-color: white;
-    border-radius: 50%;
-    transition: left ${({ theme }) => theme.transitions.fast};
+  &::-webkit-scrollbar-thumb {
+    background: ${({ theme }) => theme.colors.border};
+    border-radius: 3px;
   }
 `;
 
-const HiddenCheckbox = styled.input`
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
+const SearchInput = styled.input`
+  width: 200px;
+  padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.sm};
+  background-color: ${({ theme }) => theme.colors.background};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.borderRadius.md};
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-family: ${({ theme }) => theme.typography.fontFamily};
+  transition: all ${({ theme }) => theme.transitions.fast};
+  flex-shrink: 0;
+
+  &:focus {
+    outline: none;
+    border-color: ${({ theme }) => theme.colors.primary};
+    box-shadow: 0 0 0 2px ${({ theme }) => theme.colors.primary}33;
+  }
+
+  &::placeholder {
+    color: ${({ theme }) => theme.colors.textMuted};
+  }
 `;
 
-const FilterCount = styled.span`
-  margin-left: auto;
-  padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.sm};
-  background-color: ${({ theme }) => theme.colors.backgroundTertiary};
-  border-radius: ${({ theme }) => theme.borderRadius.sm};
+const FilterChipsContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.xs};
+  flex: 1;
+  overflow-x: auto;
+
+  /* Hide scrollbar but keep functionality */
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+`;
+
+const FilterChip = styled.button.attrs<{ $active: boolean }>(({ theme, $active }) => ({
+  style: {
+    backgroundColor: $active ? theme.colors.primary : theme.colors.background,
+    color: $active ? '#ffffff' : theme.colors.text,
+    borderColor: $active ? theme.colors.primary : theme.colors.border,
+  },
+}))<{ $active: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.xs};
+  padding: ${({ theme }) => `${theme.spacing.xs} ${theme.spacing.sm}`};
+  border-width: 1px;
+  border-style: solid;
+  border-radius: ${({ theme }) => theme.borderRadius.full};
+  cursor: pointer;
+  transition: all ${({ theme }) => theme.transitions.fast};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  white-space: nowrap;
+  flex-shrink: 0;
+  position: relative;
+
+  &:hover {
+    background-color: ${({ theme, $active }) =>
+      $active ? theme.colors.primary : theme.colors.hover};
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
+const ChipIcon = styled.span`
+  font-size: ${({ theme }) => theme.typography.fontSize.md};
+  line-height: 1;
+`;
+
+const ChipCount = styled.span.attrs<{ $active: boolean }>(({ $active }) => ({
+  style: {
+    backgroundColor: $active ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.08)',
+  },
+}))<{ $active: boolean }>`
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   font-family: ${({ theme }) => theme.typography.fontFamilyMono};
-  color: ${({ theme }) => theme.colors.textSecondary};
+  padding: 2px 6px;
+  border-radius: ${({ theme }) => theme.borderRadius.full};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+`;
+
+const AddFilterButton = styled.button`
+  padding: ${({ theme }) => `${theme.spacing.xs} ${theme.spacing.md}`};
+  background-color: ${({ theme }) => theme.colors.primary};
+  color: #ffffff;
+  border: none;
+  border-radius: ${({ theme }) => theme.borderRadius.full};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+  cursor: pointer;
+  transition: all ${({ theme }) => theme.transitions.fast};
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  &:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
+const FilterActions = styled.div`
+  position: absolute;
+  right: -8px;
+  top: -8px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity ${({ theme }) => theme.transitions.fast};
+`;
+
+const ActionButton = styled.button`
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background-color: ${({ theme }) => theme.colors.backgroundTertiary};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.borderRadius.full};
+  color: ${({ theme }) => theme.colors.text};
+  cursor: pointer;
+  font-size: 10px;
+  line-height: 1;
+  transition: all ${({ theme }) => theme.transitions.fast};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    background-color: ${({ theme }) => theme.colors.hover};
+    transform: scale(1.1);
+  }
+`;
+
+const CustomChipWrapper = styled.div`
+  position: relative;
+
+  &:hover ${FilterActions} {
+    opacity: 1;
+  }
+`;
+
+const Divider = styled.div`
+  width: 1px;
+  height: 24px;
+  background-color: ${({ theme }) => theme.colors.border};
+  flex-shrink: 0;
 `;
 
 interface FilterBarProps {
-  totalCount: number;
-  filteredCount: number;
-  showOnlyPrism: boolean;
-  onTogglePrism: (value: boolean) => void;
+  activeFilter: FilterType;
+  onFilterChange: (filter: FilterType) => void;
+  filterCounts: Record<FilterType, number>;
+  searchTerm: string;
+  onSearchChange: (term: string) => void;
 }
 
 export const FilterBar = ({
-  totalCount,
-  filteredCount,
-  showOnlyPrism,
-  onTogglePrism,
+  activeFilter,
+  onFilterChange,
+  filterCounts,
+  searchTerm,
+  onSearchChange
 }: FilterBarProps) => {
-  const handleToggle = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const { filters: customFilters, deleteFilter } = useCustomFiltersStore();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingFilter, setEditingFilter] = useState<CustomFilter | undefined>();
+
+  const handleEditFilter = (filter: CustomFilter, e: React.MouseEvent) => {
     e.stopPropagation();
-    onTogglePrism(!showOnlyPrism);
+    setEditingFilter(filter);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteFilter = (filterId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm('Are you sure you want to delete this filter?')) {
+      deleteFilter(filterId);
+      // If the deleted filter was active, switch to 'all'
+      if (activeFilter === filterId) {
+        onFilterChange('all');
+      }
+    }
+  };
+
+  const handleAddFilter = () => {
+    setEditingFilter(undefined);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingFilter(undefined);
   };
 
   return (
-    <Container>
-      <Label onClick={handleToggle}>
-        <HiddenCheckbox
-          type="checkbox"
-          checked={showOnlyPrism}
-          onChange={() => {}}
+    <>
+      <FilterBarContainer>
+        <SearchInput
+          type="text"
+          placeholder="Search endpoints..."
+          value={searchTerm}
+          onChange={(e) => onSearchChange(e.target.value)}
         />
-        <ToggleSwitch $checked={showOnlyPrism} />
-        Show only Prism requests
-      </Label>
-      {showOnlyPrism && (
-        <FilterCount>
-          {filteredCount} of {totalCount} requests
-        </FilterCount>
-      )}
-    </Container>
+
+        <Divider />
+
+        <FilterChipsContainer>
+          {/* Built-in Filters */}
+          {BUILT_IN_FILTERS.map((option) => (
+            <FilterChip
+              key={option.id}
+              $active={activeFilter === option.id}
+              onClick={() => onFilterChange(option.id)}
+              title={option.description}
+            >
+              <ChipIcon>{option.icon}</ChipIcon>
+              <span>{option.label}</span>
+              <ChipCount $active={activeFilter === option.id}>
+                {filterCounts[option.id] || 0}
+              </ChipCount>
+            </FilterChip>
+          ))}
+
+          {/* Custom Filters */}
+          {customFilters.map((filter) => (
+            <CustomChipWrapper key={filter.id}>
+              <FilterChip
+                $active={activeFilter === filter.id}
+                onClick={() => onFilterChange(filter.id)}
+                title={filter.description}
+              >
+                <ChipIcon>{filter.icon}</ChipIcon>
+                <span>{filter.name}</span>
+                <ChipCount $active={activeFilter === filter.id}>
+                  {filterCounts[filter.id] || 0}
+                </ChipCount>
+              </FilterChip>
+              <FilterActions>
+                <ActionButton
+                  onClick={(e) => handleEditFilter(filter, e)}
+                  title="Edit filter"
+                >
+                  ✏
+                </ActionButton>
+                <ActionButton
+                  onClick={(e) => handleDeleteFilter(filter.id, e)}
+                  title="Delete filter"
+                >
+                  ✕
+                </ActionButton>
+              </FilterActions>
+            </CustomChipWrapper>
+          ))}
+        </FilterChipsContainer>
+
+        <AddFilterButton onClick={handleAddFilter}>
+          + Add Filter
+        </AddFilterButton>
+      </FilterBarContainer>
+
+      <FilterManageModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        editingFilter={editingFilter}
+      />
+    </>
   );
 };
