@@ -6,7 +6,6 @@ import { WaterfallRow } from './WaterfallRow';
 const RequestInspector = lazy(() => import('./RequestInspector').then(module => ({ default: module.RequestInspector })));
 import { calculateWaterfallData, getTimeMarkers } from '@utils/waterfallCalculations';
 import type { FilterType } from '../types/filters';
-import type { EntryWithMetadata } from '@types';
 import { useCustomFiltersStore } from '../stores/customFiltersStore';
 import { applyFilters } from '../utils/filterUtils';
 import { Wrapper, ListPanel, DetailsPanel, Container } from './shared/ViewLayout';

@@ -265,16 +265,14 @@ interface JsonViewerProps {
 export const JsonViewer = ({
   data,
   searchTerm = '',
-  onSearchChange,
   currentMatchIndex = 0,
-  onMatchIndexChange,
   showBreadcrumb = false
 }: JsonViewerProps) => {
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['root']));
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const currentMatchRef = useRef<HTMLDivElement>(null);
 
-  let parsedData: any;
+  let parsedData: unknown;
   let parseError: string | null = null;
 
   // Parse if string, otherwise use as-is
@@ -295,7 +293,7 @@ export const JsonViewer = ({
     const matches: string[] = [];
     const searchLower = searchTerm.toLowerCase();
 
-    const searchInValue = (value: any, path: string): void => {
+    const searchInValue = (value: unknown, path: string): void => {
       if (value === null || value === undefined) {
         if ('null'.includes(searchLower) || 'undefined'.includes(searchLower)) {
           matches.push(path);
@@ -316,7 +314,7 @@ export const JsonViewer = ({
             matches.push(keyPath);
           }
           // Check if value matches
-          searchInValue(value[key], keyPath);
+          searchInValue((value as Record<string, unknown>)[key], keyPath);
         }
       } else {
         // Check primitive values
@@ -361,7 +359,7 @@ export const JsonViewer = ({
   }, [currentMatchPath, searchTerm]);
 
   // Helper to highlight text
-  const highlightText = (text: string) => {
+  const highlightText = (text: string): React.ReactNode => {
     if (!searchTerm.trim()) return text;
 
     const searchLower = searchTerm.toLowerCase();
@@ -414,9 +412,9 @@ export const JsonViewer = ({
     setSelectedPath(path);
   };
 
-  const renderValue = (value: any, key: string | number, path: string, indent: number, isLast: boolean): JSX.Element[] => {
+  const renderValue = (value: unknown, key: string | number, path: string, indent: number, isLast: boolean): React.JSX.Element[] => {
     const currentPath = `${path}.${key}`;
-    const elements: JSX.Element[] = [];
+    const elements: React.JSX.Element[] = [];
     const isCurrentMatch = currentPath === currentMatchPath;
     const isSelected = currentPath === selectedPath;
 
@@ -478,7 +476,7 @@ export const JsonViewer = ({
 
       if (expanded && hasKeys) {
         keys.forEach((objKey, index) => {
-          elements.push(...renderValue(value[objKey], objKey, currentPath, indent + 1, index === keys.length - 1));
+          elements.push(...renderValue((value as Record<string, unknown>)[objKey], objKey, currentPath, indent + 1, index === keys.length - 1));
         });
         elements.push(
           <Line key={`${currentPath}-close`} $indent={indent}>
@@ -520,7 +518,7 @@ export const JsonViewer = ({
     return elements;
   };
 
-  const renderJson = (obj: any): JSX.Element[] => {
+  const renderJson = (obj: unknown): React.JSX.Element[] => {
     const isRootSelected = selectedPath === 'root';
 
     if (obj === null) {
@@ -535,7 +533,7 @@ export const JsonViewer = ({
     if (Array.isArray(obj)) {
       const expanded = isExpanded('root');
       const hasItems = obj.length > 0;
-      const elements: JSX.Element[] = [];
+      const elements: React.JSX.Element[] = [];
 
       elements.push(
         <Line key="root" $indent={0}>
@@ -567,7 +565,7 @@ export const JsonViewer = ({
       const expanded = isExpanded('root');
       const keys = Object.keys(obj);
       const hasKeys = keys.length > 0;
-      const elements: JSX.Element[] = [];
+      const elements: React.JSX.Element[] = [];
 
       elements.push(
         <Line key="root" $indent={0}>
@@ -582,7 +580,7 @@ export const JsonViewer = ({
 
       if (expanded && hasKeys) {
         keys.forEach((key, index) => {
-          elements.push(...renderValue(obj[key], key, 'root', 1, index === keys.length - 1));
+          elements.push(...renderValue((obj as Record<string, unknown>)[key], key, 'root', 1, index === keys.length - 1));
         });
         elements.push(
           <Line key="root-close" $indent={0}>
@@ -709,12 +707,12 @@ export const JsonSearchBar = ({
   currentMatchIndex = 0,
   onMatchIndexChange
 }: JsonSearchBarProps) => {
-  let parsedData: any;
+  let parsedData: unknown;
 
   if (typeof data === 'string') {
     try {
       parsedData = JSON.parse(data);
-    } catch (e) {
+    } catch {
       parsedData = null;
     }
   } else {
@@ -728,7 +726,7 @@ export const JsonSearchBar = ({
     let matchCount = 0;
     const searchLower = searchTerm.toLowerCase();
 
-    const searchInValue = (value: any): void => {
+    const searchInValue = (value: unknown): void => {
       if (value === null || value === undefined) {
         if ('null'.includes(searchLower) || 'undefined'.includes(searchLower)) {
           matchCount++;
@@ -746,7 +744,7 @@ export const JsonSearchBar = ({
           if (key.toLowerCase().includes(searchLower)) {
             matchCount++;
           }
-          searchInValue(value[key]);
+          searchInValue((value as Record<string, unknown>)[key]);
         }
       } else {
         const strValue = String(value).toLowerCase();

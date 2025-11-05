@@ -1,3 +1,5 @@
+import type { Theme } from '../styles/theme';
+
 /**
  * Utility functions for status code badge styling
  */
@@ -13,7 +15,7 @@ export interface StatusColors {
  * @param theme - The application theme object
  * @returns Object containing backgroundColor and textColor
  */
-export function getStatusColors(status: number, theme: any): StatusColors {
+export function getStatusColors(status: number, theme: Theme): StatusColors {
   // 2xx - Success
   if (status >= 200 && status < 300) {
     return {

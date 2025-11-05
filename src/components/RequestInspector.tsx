@@ -368,7 +368,7 @@ export const RequestInspector = () => {
     if (isJSON && request.postData.text) {
       try {
         jsonData = JSON.parse(request.postData.text);
-      } catch (e) {
+      } catch {
         // Not valid JSON, will fall back to CodeBlock
       }
     }
@@ -441,7 +441,7 @@ export const RequestInspector = () => {
     if (isJSON && content.text && content.encoding !== 'base64') {
       try {
         jsonData = JSON.parse(content.text);
-      } catch (e) {
+      } catch {
         // Not valid JSON, will fall back to CodeBlock
       }
     }

@@ -69,7 +69,7 @@ export function calculateWaterfallData(entries: EntryWithMetadata[]): WaterfallD
 
 function calculateSegments(
   timings: Timings,
-  totalTime: number,
+  _totalTime: number,
   waterfallTotalDuration: number
 ): WaterfallSegment[] {
   const segments: WaterfallSegment[] = [];

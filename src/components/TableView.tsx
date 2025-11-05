@@ -4,7 +4,6 @@ import { useHAR } from '@contexts/HARContext';
 
 const RequestInspector = lazy(() => import('./RequestInspector').then(module => ({ default: module.RequestInspector })));
 import type { FilterType } from '../types/filters';
-import type { EntryWithMetadata } from '@types';
 import { formatDuration, formatBytes } from '@utils/harParser';
 import { useCustomFiltersStore } from '../stores/customFiltersStore';
 import { applyFilters } from '../utils/filterUtils';

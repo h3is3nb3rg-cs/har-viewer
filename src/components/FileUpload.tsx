@@ -1,4 +1,4 @@
-import { useState, useRef, DragEvent, ChangeEvent } from 'react';
+import { useState, useRef, type DragEvent, type ChangeEvent } from 'react';
 import styled from 'styled-components';
 import { useHAR } from '@contexts/HARContext';
 import { parseHARFile } from '@utils/harParser';

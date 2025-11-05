@@ -21,7 +21,7 @@ const Overlay = styled.div`
 const Modal = styled.div`
   background-color: ${({ theme }) => theme.colors.background};
   border-radius: ${({ theme }) => theme.borderRadius.lg};
-  box-shadow: ${({ theme }) => theme.shadows.xl};
+  box-shadow: ${({ theme }) => theme.shadows.lg};
   width: 90%;
   max-width: 600px;
   max-height: 90vh;

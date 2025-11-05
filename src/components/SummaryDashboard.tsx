@@ -178,8 +178,8 @@ export const SummaryDashboard = () => {
   }
 
   const topResourceTypes = Object.entries(stats.requestsByType)
-    .filter(([_, count]) => count > 0)
-    .sort(([_, a], [__, b]) => b - a)
+    .filter(([, count]) => count > 0)
+    .sort(([, a], [, b]) => b - a)
     .slice(0, 6);
 
   return (

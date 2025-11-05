@@ -161,7 +161,7 @@ export function calculateFilterCounts(
         if (matches) {
           counts[filter.id]++;
         }
-      } catch (error) {
+      } catch {
         // Silently skip entries that cause errors
       }
     });

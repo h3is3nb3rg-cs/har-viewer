@@ -35,8 +35,8 @@ export const useThemeStore = create<ThemeState>()(
     }),
     {
       name: 'theme-storage', // localStorage key
-      partialState: (state) => ({ themeMode: state.themeMode }), // Only persist themeMode
-      onRehydrateStorage: () => (state) => {
+      partialize: (state: ThemeState) => ({ themeMode: state.themeMode }), // Only persist themeMode
+      onRehydrateStorage: () => (state: ThemeState | undefined) => {
         // Set the theme after rehydration
         if (state) {
           document.documentElement.setAttribute('data-theme', state.themeMode);

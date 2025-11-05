@@ -143,15 +143,6 @@ const ContentContainer = styled.div`
   overflow: hidden;
 `;
 
-const Placeholder = styled.div`
-  padding: ${({ theme }) => theme.spacing.xxl};
-  background-color: ${({ theme }) => theme.colors.backgroundSecondary};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.lg};
-  text-align: center;
-  color: ${({ theme }) => theme.colors.textMuted};
-`;
-
 type ViewMode = 'statistics' | 'waterfall' | 'table';
 
 function App() {
