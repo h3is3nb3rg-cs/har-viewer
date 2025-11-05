@@ -22,10 +22,11 @@ const Tabs = styled.div`
   background-color: ${({ theme }) => theme.colors.backgroundSecondary};
   border-bottom: 2px solid ${({ theme }) => theme.colors.border};
   overflow-x: auto;
+  min-height: 42px;
 `;
 
 const Tab = styled.button<{ $active: boolean }>`
-  padding: ${({ theme }) => theme.spacing.md} ${({ theme }) => theme.spacing.lg};
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.lg};
   background-color: ${({ theme, $active }) =>
     $active ? theme.colors.background : 'transparent'};
   border: none;

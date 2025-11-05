@@ -35,6 +35,7 @@ const Thead = styled.thead`
   position: sticky;
   top: 0;
   z-index: 10;
+  height: 42px;
 `;
 
 const Th = styled.th`
@@ -44,6 +45,7 @@ const Th = styled.th`
   font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
   color: ${({ theme }) => theme.colors.text};
   white-space: nowrap;
+  height: 42px;
 `;
 
 const Tbody = styled.tbody``;

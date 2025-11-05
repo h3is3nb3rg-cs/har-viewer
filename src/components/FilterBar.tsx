@@ -15,7 +15,7 @@ const FilterBarContainer = styled.div`
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   box-shadow: ${({ theme }) => theme.shadows.sm};
   min-height: 56px;
-  overflow-x: auto;
+  overflow-x: visible;
 
   /* Custom scrollbar */
   &::-webkit-scrollbar {
@@ -33,7 +33,7 @@ const FilterBarContainer = styled.div`
 `;
 
 const SearchInput = styled.input`
-  width: 200px;
+  width: 320px;
   padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.sm};
   background-color: ${({ theme }) => theme.colors.background};
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -60,7 +60,7 @@ const FilterChipsContainer = styled.div`
   align-items: center;
   gap: ${({ theme }) => theme.spacing.xs};
   flex: 1;
-  overflow-x: auto;
+  overflow-x: visible;
 
   /* Hide scrollbar but keep functionality */
   scrollbar-width: none;
@@ -145,37 +145,44 @@ const AddFilterButton = styled.button`
 const FilterActions = styled.div`
   position: absolute;
   right: -8px;
-  top: -8px;
+  top: -10px;
   display: flex;
-  gap: 2px;
+  gap: 4px;
   opacity: 0;
   transition: opacity ${({ theme }) => theme.transitions.fast};
+  z-index: 1000;
 `;
 
 const ActionButton = styled.button`
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   background-color: ${({ theme }) => theme.colors.backgroundTertiary};
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.borderRadius.full};
   color: ${({ theme }) => theme.colors.text};
   cursor: pointer;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1;
   transition: all ${({ theme }) => theme.transitions.fast};
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 
   &:hover {
     background-color: ${({ theme }) => theme.colors.hover};
+    transform: scale(1.2);
+  }
+
+  &:active {
     transform: scale(1.1);
   }
 `;
 
 const CustomChipWrapper = styled.div`
   position: relative;
+  padding: 0 8px 0 0;
 
   &:hover ${FilterActions} {
     opacity: 1;
