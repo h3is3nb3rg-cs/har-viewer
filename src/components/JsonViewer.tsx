@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import styled from 'styled-components';
+import { Copy, Check } from 'lucide-react';
 import { JsonBreadcrumb } from './JsonBreadcrumb';
 
 const Wrapper = styled.div`
@@ -63,6 +64,10 @@ const Line = styled.div<{ $indent: number }>`
   display: flex;
   align-items: flex-start;
   gap: ${({ theme }) => theme.spacing.xs};
+
+  &:hover .copy-button {
+    opacity: 1;
+  }
 `;
 
 const ToggleButton = styled.button`
@@ -237,6 +242,36 @@ const Comma = styled.span`
   color: ${({ theme }) => theme.colors.textMuted};
 `;
 
+const CopyButton = styled.button`
+  background: none;
+  border: none;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  cursor: pointer;
+  padding: ${({ theme }) => theme.spacing.xs};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all ${({ theme }) => theme.transitions.fast};
+  border-radius: ${({ theme }) => theme.borderRadius.sm};
+  flex-shrink: 0;
+  margin-left: ${({ theme }) => theme.spacing.xs};
+
+  &:hover {
+    background-color: ${({ theme }) => theme.colors.hover};
+    color: ${({ theme }) => theme.colors.primary};
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+`;
+
 const EmptyPlaceholder = styled.span`
   color: ${({ theme }) => theme.colors.textMuted};
   font-style: italic;
@@ -270,6 +305,7 @@ export const JsonViewer = ({
 }: JsonViewerProps) => {
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['root']));
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [copiedPath, setCopiedPath] = useState<string | null>(null);
   const currentMatchRef = useRef<HTMLDivElement>(null);
 
   let parsedData: unknown;
@@ -358,6 +394,13 @@ export const JsonViewer = ({
     }
   }, [currentMatchPath, searchTerm]);
 
+  // Clear selected path when navigating search matches
+  useEffect(() => {
+    if (searchTerm.trim() && currentMatchPath) {
+      setSelectedPath(null);
+    }
+  }, [currentMatchIndex, searchTerm, currentMatchPath]);
+
   // Helper to highlight text
   const highlightText = (text: string): React.ReactNode => {
     if (!searchTerm.trim()) return text;
@@ -412,6 +455,81 @@ export const JsonViewer = ({
     setSelectedPath(path);
   };
 
+  const getCollapsedPreview = (value: unknown, isArray: boolean): string => {
+    if (isArray && Array.isArray(value)) {
+      if (value.length === 0) return '[]';
+      const firstItem = value[0];
+      let preview: string;
+
+      if (firstItem === null) {
+        preview = 'null';
+      } else if (Array.isArray(firstItem)) {
+        preview = '[...]';
+      } else if (typeof firstItem === 'object') {
+        preview = '{...}';
+      } else if (typeof firstItem === 'string') {
+        preview = `"${firstItem.length > 30 ? firstItem.substring(0, 30) + '...' : firstItem}"`;
+      } else {
+        preview = String(firstItem);
+      }
+
+      return value.length > 1 ? `${preview}, ...` : preview;
+    } else if (!isArray && typeof value === 'object' && value !== null) {
+      const keys = Object.keys(value);
+      if (keys.length === 0) return '{}';
+
+      const firstKey = keys[0];
+      const firstValue = (value as Record<string, unknown>)[firstKey];
+      let valuePreview: string;
+
+      if (firstValue === null) {
+        valuePreview = 'null';
+      } else if (Array.isArray(firstValue)) {
+        valuePreview = '[...]';
+      } else if (typeof firstValue === 'object') {
+        valuePreview = '{...}';
+      } else if (typeof firstValue === 'string') {
+        valuePreview = `"${firstValue.length > 20 ? firstValue.substring(0, 20) + '...' : firstValue}"`;
+      } else {
+        valuePreview = String(firstValue);
+      }
+
+      return keys.length > 1 ? `${firstKey}: ${valuePreview}, ...` : `${firstKey}: ${valuePreview}`;
+    }
+
+    return '';
+  };
+
+  const handleCopy = async (value: unknown, path: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering handleValueClick
+
+    // Extract raw value (remove quotes, convert to string representation)
+    let textToCopy: string;
+    if (value === null) {
+      textToCopy = 'null';
+    } else if (value === undefined) {
+      textToCopy = 'undefined';
+    } else if (typeof value === 'string') {
+      textToCopy = value; // Raw string without quotes
+    } else if (typeof value === 'boolean' || typeof value === 'number') {
+      textToCopy = String(value);
+    } else {
+      textToCopy = JSON.stringify(value, null, 2);
+    }
+
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      setCopiedPath(path);
+
+      // Reset after 1 second
+      setTimeout(() => {
+        setCopiedPath(null);
+      }, 1000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
   const renderValue = (value: unknown, key: string | number, path: string, indent: number, isLast: boolean): React.JSX.Element[] => {
     const currentPath = `${path}.${key}`;
     const elements: React.JSX.Element[] = [];
@@ -425,6 +543,13 @@ export const JsonViewer = ({
           {typeof key === 'string' && <Key>{highlightText(key)}:</Key>}
           <NullValue $isSelected={isSelected} onClick={() => handleValueClick(currentPath)}>null</NullValue>
           {!isLast && <Comma>,</Comma>}
+          <CopyButton
+            className="copy-button"
+            onClick={(e) => handleCopy(value, currentPath, e)}
+            title="Copy value"
+          >
+            {copiedPath === currentPath ? <Check /> : <Copy />}
+          </CopyButton>
         </Line>
       );
     } else if (Array.isArray(value)) {
@@ -438,7 +563,7 @@ export const JsonViewer = ({
           </ToggleButton>
           {typeof key === 'string' && <Key>{highlightText(key)}:</Key>}
           <Bracket>[</Bracket>
-          {!expanded && hasItems && <Expandable>{value.length} items</Expandable>}
+          {!expanded && hasItems && <Expandable>{getCollapsedPreview(value, true)}</Expandable>}
           {!hasItems && <Bracket>]</Bracket>}
           {!expanded && !isLast && <Comma>,</Comma>}
         </Line>
@@ -468,7 +593,7 @@ export const JsonViewer = ({
           </ToggleButton>
           {typeof key === 'string' && <Key>{highlightText(key)}:</Key>}
           <Bracket>{'{'}</Bracket>
-          {!expanded && hasKeys && <Expandable>{keys.length} keys</Expandable>}
+          {!expanded && hasKeys && <Expandable>{getCollapsedPreview(value, false)}</Expandable>}
           {!hasKeys && <Bracket>{'}'}</Bracket>}
           {!expanded && !isLast && <Comma>,</Comma>}
         </Line>
@@ -493,6 +618,13 @@ export const JsonViewer = ({
           {typeof key === 'string' && <Key>{highlightText(key)}:</Key>}
           <StringValue $isSelected={isSelected} onClick={() => handleValueClick(currentPath)}>"{highlightText(value)}"</StringValue>
           {!isLast && <Comma>,</Comma>}
+          <CopyButton
+            className="copy-button"
+            onClick={(e) => handleCopy(value, currentPath, e)}
+            title="Copy value"
+          >
+            {copiedPath === currentPath ? <Check /> : <Copy />}
+          </CopyButton>
         </Line>
       );
     } else if (typeof value === 'number') {
@@ -502,6 +634,13 @@ export const JsonViewer = ({
           {typeof key === 'string' && <Key>{highlightText(key)}:</Key>}
           <NumberValue $isSelected={isSelected} onClick={() => handleValueClick(currentPath)}>{highlightText(String(value))}</NumberValue>
           {!isLast && <Comma>,</Comma>}
+          <CopyButton
+            className="copy-button"
+            onClick={(e) => handleCopy(value, currentPath, e)}
+            title="Copy value"
+          >
+            {copiedPath === currentPath ? <Check /> : <Copy />}
+          </CopyButton>
         </Line>
       );
     } else if (typeof value === 'boolean') {
@@ -511,6 +650,13 @@ export const JsonViewer = ({
           {typeof key === 'string' && <Key>{highlightText(key)}:</Key>}
           <BooleanValue $isSelected={isSelected} onClick={() => handleValueClick(currentPath)}>{highlightText(value.toString())}</BooleanValue>
           {!isLast && <Comma>,</Comma>}
+          <CopyButton
+            className="copy-button"
+            onClick={(e) => handleCopy(value, currentPath, e)}
+            title="Copy value"
+          >
+            {copiedPath === currentPath ? <Check /> : <Copy />}
+          </CopyButton>
         </Line>
       );
     }
@@ -526,6 +672,13 @@ export const JsonViewer = ({
         <Line key="root" $indent={0}>
           <ToggleButton style={{ visibility: 'hidden' }} />
           <NullValue $isSelected={isRootSelected} onClick={() => handleValueClick('root')}>null</NullValue>
+          <CopyButton
+            className="copy-button"
+            onClick={(e) => handleCopy(obj, 'root', e)}
+            title="Copy value"
+          >
+            {copiedPath === 'root' ? <Check /> : <Copy />}
+          </CopyButton>
         </Line>
       ];
     }
@@ -541,7 +694,7 @@ export const JsonViewer = ({
             {hasItems ? (expanded ? '▼' : '▶') : ' '}
           </ToggleButton>
           <Bracket>[</Bracket>
-          {!expanded && hasItems && <Expandable>{obj.length} items</Expandable>}
+          {!expanded && hasItems && <Expandable>{getCollapsedPreview(obj, true)}</Expandable>}
           {!hasItems && <Bracket>]</Bracket>}
         </Line>
       );
@@ -573,7 +726,7 @@ export const JsonViewer = ({
             {hasKeys ? (expanded ? '▼' : '▶') : ' '}
           </ToggleButton>
           <Bracket>{'{'}</Bracket>
-          {!expanded && hasKeys && <Expandable>{keys.length} keys</Expandable>}
+          {!expanded && hasKeys && <Expandable>{getCollapsedPreview(obj, false)}</Expandable>}
           {!hasKeys && <Bracket>{'}'}</Bracket>}
         </Line>
       );
@@ -599,6 +752,13 @@ export const JsonViewer = ({
         <Line key="root" $indent={0}>
           <ToggleButton style={{ visibility: 'hidden' }} />
           <StringValue $isSelected={isRootSelected} onClick={() => handleValueClick('root')}>"{obj}"</StringValue>
+          <CopyButton
+            className="copy-button"
+            onClick={(e) => handleCopy(obj, 'root', e)}
+            title="Copy value"
+          >
+            {copiedPath === 'root' ? <Check /> : <Copy />}
+          </CopyButton>
         </Line>
       ];
     }
@@ -608,6 +768,13 @@ export const JsonViewer = ({
         <Line key="root" $indent={0}>
           <ToggleButton style={{ visibility: 'hidden' }} />
           <NumberValue $isSelected={isRootSelected} onClick={() => handleValueClick('root')}>{obj}</NumberValue>
+          <CopyButton
+            className="copy-button"
+            onClick={(e) => handleCopy(obj, 'root', e)}
+            title="Copy value"
+          >
+            {copiedPath === 'root' ? <Check /> : <Copy />}
+          </CopyButton>
         </Line>
       ];
     }
@@ -617,6 +784,13 @@ export const JsonViewer = ({
         <Line key="root" $indent={0}>
           <ToggleButton style={{ visibility: 'hidden' }} />
           <BooleanValue $isSelected={isRootSelected} onClick={() => handleValueClick('root')}>{obj.toString()}</BooleanValue>
+          <CopyButton
+            className="copy-button"
+            onClick={(e) => handleCopy(obj, 'root', e)}
+            title="Copy value"
+          >
+            {copiedPath === 'root' ? <Check /> : <Copy />}
+          </CopyButton>
         </Line>
       ];
     }
@@ -639,8 +813,8 @@ export const JsonViewer = ({
     );
   }
 
-  // Determine which path to show in breadcrumb: current match or selected path
-  const displayPath = currentMatchPath || selectedPath;
+  // Determine which path to show in breadcrumb: selected path takes priority over search match
+  const displayPath = selectedPath || currentMatchPath;
 
   return (
     <Wrapper>

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styled from 'styled-components';
+import { X } from 'lucide-react';
 import { useHAR } from '@contexts/HARContext';
 import { formatBytes, formatDuration, formatTimestamp } from '@utils/harParser';
 import { JsonViewer, JsonSearchBar } from './JsonViewer';
@@ -23,6 +24,7 @@ const Tabs = styled.div`
   border-bottom: 2px solid ${({ theme }) => theme.colors.border};
   overflow-x: auto;
   min-height: 42px;
+  position: relative;
 `;
 
 const Tab = styled.button<{ $active: boolean }>`
@@ -42,6 +44,33 @@ const Tab = styled.button<{ $active: boolean }>`
 
   &:hover {
     background-color: ${({ theme }) => theme.colors.hover};
+  }
+`;
+
+const CloseButton = styled.button`
+  position: absolute;
+  right: ${({ theme }) => theme.spacing.sm};
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  cursor: pointer;
+  padding: ${({ theme }) => theme.spacing.xs};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: ${({ theme }) => theme.borderRadius.sm};
+  transition: all ${({ theme }) => theme.transitions.fast};
+
+  &:hover {
+    background-color: ${({ theme }) => theme.colors.hover};
+    color: ${({ theme }) => theme.colors.error};
+  }
+
+  svg {
+    width: 18px;
+    height: 18px;
   }
 `;
 
@@ -121,6 +150,45 @@ const Td = styled.td`
   word-break: break-all;
 `;
 
+const Highlight = styled.mark`
+  background-color: ${({ theme }) => theme.colors.warning};
+  color: ${({ theme }) => theme.colors.background};
+  padding: 1px 2px;
+  border-radius: 2px;
+`;
+
+const SearchInputWrapper = styled.div`
+  margin-bottom: ${({ theme }) => theme.spacing.md};
+`;
+
+const SearchInput = styled.input`
+  width: 100%;
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
+  background-color: ${({ theme }) => theme.colors.background};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.borderRadius.md};
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-family: ${({ theme }) => theme.typography.fontFamily};
+  transition: all ${({ theme }) => theme.transitions.fast};
+
+  &:focus {
+    outline: none;
+    border-color: ${({ theme }) => theme.colors.primary};
+    box-shadow: 0 0 0 2px ${({ theme }) => theme.colors.primary}33;
+  }
+
+  &::placeholder {
+    color: ${({ theme }) => theme.colors.textMuted};
+  }
+`;
+
+const SearchStats = styled.div`
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  color: ${({ theme }) => theme.colors.textSecondary};
+  margin-top: ${({ theme }) => theme.spacing.xs};
+`;
+
 const CodeBlock = styled.pre`
   background-color: ${({ theme }) => theme.colors.backgroundTertiary};
   padding: ${({ theme }) => theme.spacing.md};
@@ -180,12 +248,22 @@ const TimingBarFill = styled.div<{ $width: number; $color: string }>`
 `;
 
 export const RequestInspector = () => {
-  const { selectedEntry } = useHAR();
+  const { selectedEntry, selectEntry } = useHAR();
   const [activeTab, setActiveTab] = useState<Tab>('general');
   const [payloadSearchTerm, setPayloadSearchTerm] = useState('');
   const [payloadMatchIndex, setPayloadMatchIndex] = useState(0);
   const [responseSearchTerm, setResponseSearchTerm] = useState('');
   const [responseMatchIndex, setResponseMatchIndex] = useState(0);
+  const [headersSearchTerm, setHeadersSearchTerm] = useState('');
+
+  // Clear all search terms when a new API call is selected
+  useEffect(() => {
+    setPayloadSearchTerm('');
+    setPayloadMatchIndex(0);
+    setResponseSearchTerm('');
+    setResponseMatchIndex(0);
+    setHeadersSearchTerm('');
+  }, [selectedEntry?.index]);
 
   if (!selectedEntry) {
     return (
@@ -252,49 +330,117 @@ export const RequestInspector = () => {
     );
   };
 
-  const renderHeadersTab = () => (
-    <>
-      <Section>
-        <SectionTitle>Request Headers ({request.headers.length})</SectionTitle>
-        <Table>
-          <thead>
-            <tr>
-              <Th>Name</Th>
-              <Th>Value</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {request.headers.map((header, index) => (
-              <tr key={index}>
-                <Td>{header.name}</Td>
-                <Td>{header.value}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      </Section>
+  const highlightText = (text: string, searchTerm: string): React.ReactNode => {
+    if (!searchTerm.trim()) return text;
 
-      <Section>
-        <SectionTitle>Response Headers ({response.headers.length})</SectionTitle>
-        <Table>
-          <thead>
-            <tr>
-              <Th>Name</Th>
-              <Th>Value</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {response.headers.map((header, index) => (
-              <tr key={index}>
-                <Td>{header.name}</Td>
-                <Td>{header.value}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      </Section>
-    </>
-  );
+    const searchLower = searchTerm.toLowerCase();
+    const textLower = text.toLowerCase();
+    const index = textLower.indexOf(searchLower);
+
+    if (index === -1) return text;
+
+    const before = text.substring(0, index);
+    const match = text.substring(index, index + searchTerm.length);
+    const after = text.substring(index + searchTerm.length);
+
+    return (
+      <>
+        {before}
+        <Highlight>{match}</Highlight>
+        {highlightText(after, searchTerm)}
+      </>
+    );
+  };
+
+  const renderHeadersTab = () => {
+    // Filter headers based on search term
+    const filteredRequestHeaders = request.headers.filter(header => {
+      if (!headersSearchTerm.trim()) return true;
+      const searchLower = headersSearchTerm.toLowerCase();
+      return (
+        header.name.toLowerCase().includes(searchLower) ||
+        header.value.toLowerCase().includes(searchLower)
+      );
+    });
+
+    const filteredResponseHeaders = response.headers.filter(header => {
+      if (!headersSearchTerm.trim()) return true;
+      const searchLower = headersSearchTerm.toLowerCase();
+      return (
+        header.name.toLowerCase().includes(searchLower) ||
+        header.value.toLowerCase().includes(searchLower)
+      );
+    });
+
+    const totalMatches = filteredRequestHeaders.length + filteredResponseHeaders.length;
+    const totalHeaders = request.headers.length + response.headers.length;
+
+    return (
+      <>
+        <SearchInputWrapper>
+          <SearchInput
+            type="text"
+            placeholder="Search headers (name or value)..."
+            value={headersSearchTerm}
+            onChange={(e) => setHeadersSearchTerm(e.target.value)}
+          />
+          {headersSearchTerm && (
+            <SearchStats>
+              Showing {totalMatches} of {totalHeaders} headers
+            </SearchStats>
+          )}
+        </SearchInputWrapper>
+
+        <Section>
+          <SectionTitle>Request Headers ({filteredRequestHeaders.length}{headersSearchTerm ? ` of ${request.headers.length}` : ''})</SectionTitle>
+          {filteredRequestHeaders.length === 0 ? (
+            <EmptyState>No matching request headers</EmptyState>
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Name</Th>
+                  <Th>Value</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRequestHeaders.map((header, index) => (
+                  <tr key={index}>
+                    <Td>{highlightText(header.name, headersSearchTerm)}</Td>
+                    <Td>{highlightText(header.value, headersSearchTerm)}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </Section>
+
+        <Section>
+          <SectionTitle>Response Headers ({filteredResponseHeaders.length}{headersSearchTerm ? ` of ${response.headers.length}` : ''})</SectionTitle>
+          {filteredResponseHeaders.length === 0 ? (
+            <EmptyState>No matching response headers</EmptyState>
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Name</Th>
+                  <Th>Value</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredResponseHeaders.map((header, index) => (
+                  <tr key={index}>
+                    <Td>{highlightText(header.name, headersSearchTerm)}</Td>
+                    <Td>{highlightText(header.value, headersSearchTerm)}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </Section>
+      </>
+    );
+  };
 
   const renderCookiesTab = () => (
     <>
@@ -584,6 +730,9 @@ export const RequestInspector = () => {
         <Tab $active={activeTab === 'timings'} onClick={() => setActiveTab('timings')}>
           Timings
         </Tab>
+        <CloseButton onClick={() => selectEntry(null)} title="Close details">
+          <X />
+        </CloseButton>
       </Tabs>
       <Content>{renderContent()}</Content>
     </Container>
