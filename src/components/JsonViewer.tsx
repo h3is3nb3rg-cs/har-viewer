@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import styled from 'styled-components';
 import { Copy, Check } from 'lucide-react';
+import { useHotkeys } from 'react-hotkeys-hook';
 import { JsonBreadcrumb } from './JsonBreadcrumb';
 
 const Wrapper = styled.div`
@@ -16,11 +17,21 @@ const BreadcrumbWrapper = styled.div`
 
 const SearchContainer = styled.div`
   position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.xs};
+`;
+
+const SearchInputWrapper = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
 `;
 
 const SearchInput = styled.input`
   width: 100%;
   padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
+  padding-right: 80px;
   background-color: ${({ theme }) => theme.colors.background};
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.borderRadius.md};
@@ -40,10 +51,40 @@ const SearchInput = styled.input`
   }
 `;
 
+const KbdHint = styled.div`
+  position: absolute;
+  right: ${({ theme }) => theme.spacing.sm};
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0.6;
+  pointer-events: none;
+`;
+
 const SearchStats = styled.div`
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   color: ${({ theme }) => theme.colors.textSecondary};
   padding: 0 ${({ theme }) => theme.spacing.sm};
+`;
+
+const Kbd = styled.kbd`
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background-color: ${({ theme }) => theme.colors.backgroundSecondary};
+  padding: 2px 6px;
+  font-family: ${({ theme }) => theme.typography.fontFamilyMono};
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  color: ${({ theme }) => theme.colors.textSecondary};
+  box-shadow: 0 1px 0 1px ${({ theme }) => theme.colors.border};
+  min-width: 24px;
+  line-height: 1;
 `;
 
 const Container = styled.div`
@@ -881,6 +922,19 @@ export const JsonSearchBar = ({
   currentMatchIndex = 0,
   onMatchIndexChange
 }: JsonSearchBarProps) => {
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Detect if user is on Mac
+  const isMac = useMemo(() => {
+    return typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  }, []);
+
+  // Add hotkey to focus search input (Cmd+F on Mac, Ctrl+F on Windows/Linux)
+  useHotkeys('mod+f', (e) => {
+    e.preventDefault();
+    searchInputRef.current?.focus();
+  }, { enableOnFormTags: true });
+
   let parsedData: unknown;
 
   if (typeof data === 'string') {
@@ -961,13 +1015,31 @@ export const JsonSearchBar = ({
 
   return (
     <SearchContainer>
-      <SearchInput
-        type="text"
-        placeholder="Search in JSON... (Enter to navigate)"
-        value={searchTerm}
-        onChange={(e) => onSearchChange(e.target.value)}
-        onKeyDown={handleKeyDown}
-      />
+      <SearchInputWrapper>
+        <SearchInput
+          ref={searchInputRef}
+          type="text"
+          placeholder="Search in JSON..."
+          value={searchTerm}
+          onChange={(e) => onSearchChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+        />
+        {!searchTerm && (
+          <KbdHint>
+            {isMac ? (
+              <>
+                <Kbd>⌘</Kbd>
+                <Kbd>F</Kbd>
+              </>
+            ) : (
+              <>
+                <Kbd>Ctrl</Kbd>
+                <Kbd>F</Kbd>
+              </>
+            )}
+          </KbdHint>
+        )}
+      </SearchInputWrapper>
       {searchTerm && totalMatches > 0 && onMatchIndexChange && (
         <SearchControls>
           <MatchCounter>
