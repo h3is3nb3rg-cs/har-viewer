@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Cursor IDE Integration Settings** - Complete settings system for enabling/disabling Cursor integration:
+  - Settings button in header with real-time connection status badge
+  - Visual status indicator with 4 states:
+    - 🟢 Green: Connected to MCP server
+    - 🔴 Red: Disconnected (server not reachable)
+    - ⚪ Gray: Integration disabled
+    - 🟡 Yellow: Checking connection status
+  - Status tooltip on hover showing detailed connection information
+  - Settings modal with comprehensive controls:
+    - Step-by-step setup guide with visual illustrations showing how to:
+      1. Start MCP server (`pnpm run start:http`)
+      2. Select an API call in HAR Viewer
+      3. Send the API call to Cursor for analysis
+    - Modern iOS-style toggle switch to enable/disable integration
+    - Real-time connection status display
+    - MCP server URL display with copy-to-clipboard button
+    - "Test Connection" button with loading animation
+    - "Last checked" timestamp (e.g., "2 seconds ago", "Just now")
+    - Collapsible requirements section listing all prerequisites
+  - Settings persistence across browser sessions using localStorage
+  - Automatic connection health checks every 10 seconds (only when enabled)
+  - Reusable tooltip component supporting 4 positions (top, bottom, left, right)
+  - Connection status colors added to theme system for both light and dark modes
+  - Zustand store for settings state management with middleware
+- "Send to Cursor" button now conditionally visible based on integration status
+  - Button automatically appears when integration is enabled
+  - Button automatically hides when integration is disabled
+  - No visual clutter when integration is not in use
+
+### Changed
+- Header layout updated to accommodate settings button:
+  - New HeaderRight container for icon buttons (Settings and Theme toggle)
+  - Settings button placed before Theme toggle button
+  - 8px gap between header icon buttons for visual spacing
+- MCP client health checks are now controlled by settings:
+  - Health checks only run when integration is enabled (resource efficient)
+  - Automatic restoration of health checks on page refresh if integration was enabled
+  - Health check interval: 10 seconds (configurable)
+
+### Technical Details
+- New components:
+  - `SettingsButton.tsx`: Header button with status badge and tooltip (122 lines)
+  - `SettingsModal.tsx`: Comprehensive settings dialog (537 lines)
+  - `SetupIllustration.tsx`: Visual step-by-step guide (145 lines)
+  - `Tooltip.tsx`: Reusable tooltip component (149 lines)
+- New store:
+  - `settingsStore.ts`: Zustand store with persist middleware (52 lines)
+- Modified components:
+  - `App.tsx`: Added settings button to header
+  - `RequestInspector.tsx`: Conditional rendering of "Send to Cursor" button
+  - `theme.ts`: Added connection status colors
+- State management: Zustand with localStorage persistence
+- Total new code: ~1,000+ lines
+- Responsive design: Mobile-friendly with vertical layout on small screens
+
 ## [0.1.0] - 2025-11-06
 
 ### Added

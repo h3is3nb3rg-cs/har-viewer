@@ -23,6 +23,12 @@ interface Theme {
     error: string;
     info: string;
 
+    // Connection status colors
+    statusConnected: string;
+    statusDisconnected: string;
+    statusDisabled: string;
+    statusChecking: string;
+
     // HTTP Status code colors
     status2xx: string;
     status3xx: string;
@@ -128,6 +134,11 @@ const lightTheme: Theme = {
     error: '#f03e3e',
     info: '#1c7ed6',
 
+    statusConnected: '#10b981',
+    statusDisconnected: '#ef4444',
+    statusDisabled: '#9ca3af',
+    statusChecking: '#f59e0b',
+
     status2xx: '#37b24d',
     status3xx: '#4dabf7',
     status4xx: '#ffa94d',
@@ -228,6 +239,11 @@ const darkTheme: Theme = {
     warning: '#ffd43b',
     error: '#ff6b6b',
     info: '#4dabf7',
+
+    statusConnected: '#10b981',
+    statusDisconnected: '#ef4444',
+    statusDisabled: '#6b7280',
+    statusChecking: '#f59e0b',
 
     status2xx: '#51cf66',
     status3xx: '#74c0fc',

@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import styled from 'styled-components';
 import { ThemeToggle } from '@components/ThemeToggle';
+import { SettingsButton } from '@components/SettingsButton';
 import { FileUpload } from '@components/FileUpload';
 import { SummaryDashboard } from '@components/SummaryDashboard';
 import { WaterfallChart } from '@components/WaterfallChart';
@@ -32,6 +33,12 @@ const HeaderLeft = styled.div`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.lg};
+`;
+
+const HeaderRight = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
 `;
 
 const Title = styled.h1`
@@ -187,7 +194,10 @@ function App() {
             </>
           )}
         </HeaderLeft>
-        <ThemeToggle />
+        <HeaderRight>
+          <SettingsButton />
+          <ThemeToggle />
+        </HeaderRight>
       </Header>
       {har && (
         <FilterBar

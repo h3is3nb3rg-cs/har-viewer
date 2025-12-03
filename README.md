@@ -35,6 +35,7 @@ HAR Viewer is a powerful, client-side tool for analyzing HAR files with:
 - **Advanced filtering** - Built-in and custom filter support
 - **Interactive navigation** - JSON breadcrumb navigation with click-to-explore
 - **Performance insights** - Comprehensive timing breakdowns and metrics
+- **Cursor IDE Integration** - Send API calls directly to Cursor for AI-powered analysis via MCP
 - **Modern UX** - Dark/light themes, drag-and-drop uploads, responsive design
 
 ## ✨ Features
@@ -79,6 +80,24 @@ Multi-tab interface for detailed request analysis:
 
 The inspector appears as a split panel when you select a request, with the list on the left (25%) and details on the right (75%). Both views support horizontal scrolling for responsive layouts.
 
+### 🤖 Cursor IDE Integration
+
+Seamlessly integrate with Cursor IDE for AI-powered API analysis:
+
+- **Settings System**: Enable/disable integration via settings modal
+- **Real-time Status Monitoring**: Visual connection status badge with 4 states:
+  - 🟢 **Connected**: MCP server is reachable
+  - 🔴 **Disconnected**: Server not reachable
+  - ⚪ **Disabled**: Integration turned off
+  - 🟡 **Checking**: Verifying connection status
+- **One-Click Send**: "Send to Cursor" button appears in Request Inspector when enabled
+- **Visual Feedback**: Success/error states with auto-reset (3 seconds)
+- **Automatic Health Checks**: Monitors MCP server connectivity every 10 seconds
+- **Persistent Settings**: Integration preferences saved across browser sessions
+- **Setup Guide**: Built-in step-by-step visual instructions
+- **Connection Testing**: Manual test connection with loading animation
+- **MCP Server URL**: Display and copy server URL (http://localhost:3100/mcp)
+
 ### 📊 Performance Dashboard
 
 - Total requests and domain count
@@ -117,7 +136,8 @@ The inspector appears as a split panel when you select a request, with the list 
 | **TypeScript** | 5.9.3 | Type safety |
 | **Vite** | 7.1.7 | Build tool & dev server |
 | **Styled Components** | 6.1.19 | CSS-in-JS styling |
-| **Zustand** | 5.0.8 | State management |
+| **Zustand** | 5.0.8 | State management (with persist middleware) |
+| **Lucide React** | - | Icon library |
 
 ### Development
 
@@ -144,11 +164,17 @@ HAR Viewer uses a **hybrid state management approach**:
 │  └── ThemeContext                      │
 │      └── Theme provider wrapper        │
 │                                         │
-│  Zustand Stores                        │
+│  Zustand Stores (with persistence)     │
 │  ├── useThemeStore                     │
 │  │   └── Theme persistence             │
-│  └── useCustomFiltersStore            │
-│      └── Filter definitions            │
+│  ├── useCustomFiltersStore            │
+│  │   └── Filter definitions            │
+│  └── useSettingsStore                 │
+│      └── Cursor integration settings   │
+│                                         │
+│  Services                               │
+│  └── mcpClient                         │
+│      └── MCP server communication      │
 │                                         │
 └─────────────────────────────────────────┘
 ```
@@ -170,6 +196,13 @@ App (Root)
     │   ├── Title
     │   ├── FileInfo
     │   ├── ViewToggle
+    │   ├── SettingsButton (with status badge & tooltip)
+    │   │   └── SettingsModal
+    │   │       ├── SetupIllustration (3-step guide)
+    │   │       ├── Toggle Switch (enable/disable)
+    │   │       ├── Connection Status Display
+    │   │       ├── Test Connection Button
+    │   │       └── Collapsible Requirements
     │   └── ThemeToggle
     │
     ├── Sidebar
@@ -185,6 +218,8 @@ App (Root)
             │   ├── Table (with horizontal scroll)
             │   └── RequestInspector (split panel)
             │       ├── Tabs (General, Headers, Cookies, Payload, Response, Timings)
+            │       ├── SendButton (conditional, when Cursor enabled)
+            │       ├── CloseButton
             │       ├── JsonViewer (with inline search)
             │       └── JsonBreadcrumb
             │
@@ -326,6 +361,11 @@ har-viewer/
 │   │   ├── JsonBreadcrumb.tsx  # Path navigation
 │   │   ├── SummaryDashboard.tsx   # Metrics dashboard
 │   │   ├── ThemeToggle.tsx     # Theme switcher
+│   │   ├── SettingsButton.tsx  # Settings button with status badge
+│   │   ├── SettingsModal.tsx   # Cursor integration settings dialog
+│   │   ├── SetupIllustration.tsx  # Visual setup guide
+│   │   ├── shared/
+│   │   │   └── Tooltip.tsx     # Reusable tooltip component
 │   │   └── App.tsx             # Root component
 │   │
 │   ├── contexts/               # React Context providers
@@ -334,7 +374,11 @@ har-viewer/
 │   │
 │   ├── stores/                 # Zustand state stores
 │   │   ├── customFiltersStore.ts  # Custom filters
-│   │   └── themeStore.ts       # Theme persistence
+│   │   ├── themeStore.ts       # Theme persistence
+│   │   └── settingsStore.ts    # Cursor integration settings
+│   │
+│   ├── services/               # External service integrations
+│   │   └── mcpClient.ts        # MCP HTTP client for Cursor
 │   │
 │   ├── types/                  # TypeScript definitions
 │   │   ├── har.types.ts       # HAR 1.2 spec types
@@ -473,6 +517,65 @@ Click the theme toggle button (🌙/☀️) in the header to switch between:
 - **Dark Mode**: Reduced eye strain for low-light environments
 
 Your preference is saved and will persist across sessions.
+
+### Setting Up Cursor IDE Integration
+
+The Cursor IDE integration allows you to send API call data from HAR Viewer directly to Cursor for AI-powered analysis using the Model Context Protocol (MCP).
+
+#### Prerequisites
+
+1. **MCP Server**: You need a running MCP HTTP server (typically part of the har-viewer MCP package)
+2. **Cursor IDE**: Cursor must be configured to connect to the MCP server
+3. **Same Machine**: Both browser and MCP server must run on localhost
+
+#### Setup Steps
+
+1. **Start the MCP Server**:
+   ```bash
+   # In your MCP server directory
+   pnpm run start:http
+   ```
+   The server will start on `http://localhost:3100`
+
+2. **Enable Integration**:
+   - Click the Settings button (⚙️) in the HAR Viewer header
+   - Toggle "Enable Cursor Integration" to ON
+   - The status badge will show:
+     - 🟢 **Green**: Connected successfully
+     - 🔴 **Red**: Server not reachable (check if MCP server is running)
+     - 🟡 **Yellow**: Checking connection
+
+3. **Send API Call to Cursor**:
+   - Load a HAR file in the viewer
+   - Click on any API request to open the inspector
+   - Click the **"Send to Cursor"** button in the tab bar
+   - The button will show:
+     - "Sending..." while transmitting
+     - "Sent!" in green on success
+     - "Failed" in red if there's an error
+
+4. **Analyze in Cursor**:
+   - Open Cursor IDE
+   - The API call data is now available via MCP tools
+   - Use Cursor's AI to analyze the request/response
+
+#### Troubleshooting
+
+- **Disconnected Status**: Verify MCP server is running with `pnpm run start:http`
+- **Button Not Visible**: Check that integration is enabled in settings
+- **Send Failed**: Click "Test Connection" in settings modal to diagnose
+- **Port Conflicts**: Ensure port 3100 is not in use by another application
+
+#### Settings Modal Features
+
+- **Visual Setup Guide**: 3-step illustrated workflow
+- **Connection Status**: Real-time server connectivity monitoring
+- **Test Connection**: Manual health check with loading animation
+- **MCP Server URL**: Display and copy server URL to clipboard
+- **Last Checked**: Shows when connection was last verified
+- **Requirements**: Collapsible section listing all prerequisites
+
+The integration settings are saved in your browser's localStorage and will persist across sessions.
 
 ## 💻 Development
 

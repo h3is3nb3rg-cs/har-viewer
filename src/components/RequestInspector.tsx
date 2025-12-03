@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { X } from 'lucide-react';
+import { X, Send } from 'lucide-react';
 import { useHAR } from '@contexts/HARContext';
 import { formatBytes, formatDuration, formatTimestamp } from '@utils/harParser';
 import { JsonViewer, JsonSearchBar } from './JsonViewer';
 import { StatusBadge } from './shared/StatusBadge';
+import { mcpClient } from '@services/mcpClient';
+import { useSettingsStore } from '../stores/settingsStore';
 
 type Tab = 'general' | 'headers' | 'cookies' | 'payload' | 'response' | 'timings';
 
@@ -71,6 +73,45 @@ const CloseButton = styled.button`
   svg {
     width: 18px;
     height: 18px;
+  }
+`;
+
+const SendButton = styled.button<{ $success?: boolean; $error?: boolean }>`
+  position: absolute;
+  right: 52px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: ${({ $success, $error, theme }) =>
+    $success ? theme.colors.success : $error ? theme.colors.error : theme.colors.primary};
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: ${({ theme }) => `${theme.spacing.xs} ${theme.spacing.sm}`};
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.xs};
+  border-radius: ${({ theme }) => theme.borderRadius.sm};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-weight: 500;
+  transition: all ${({ theme }) => theme.transitions.fast};
+
+  &:hover:not(:disabled) {
+    opacity: 0.9;
+    transform: translateY(-50%) scale(1.02);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(-50%) scale(0.98);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
   }
 `;
 
@@ -249,10 +290,13 @@ const TimingBarFill = styled.div<{ $width: number; $color: string }>`
 
 export const RequestInspector = () => {
   const { selectedEntry, selectEntry } = useHAR();
+  const { cursorIntegrationEnabled } = useSettingsStore();
   const [activeTab, setActiveTab] = useState<Tab>('general');
   const [payloadSearchTerm, setPayloadSearchTerm] = useState('');
   const [payloadMatchIndex, setPayloadMatchIndex] = useState(0);
   const [responseSearchTerm, setResponseSearchTerm] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendStatus, setSendStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [responseMatchIndex, setResponseMatchIndex] = useState(0);
   const [headersSearchTerm, setHeadersSearchTerm] = useState('');
 
@@ -263,7 +307,43 @@ export const RequestInspector = () => {
     setResponseSearchTerm('');
     setResponseMatchIndex(0);
     setHeadersSearchTerm('');
+    setSendStatus('idle'); // Reset send status on selection change
   }, [selectedEntry?.index]);
+
+  // Handler for sending API data to Cursor via MCP
+  const handleSendToCursor = async () => {
+    if (!selectedEntry || sending) return;
+
+    setSending(true);
+    setSendStatus('idle');
+
+    try {
+      const result = await mcpClient.sendSelectionToCursor(selectedEntry);
+
+      if (result.success) {
+        setSendStatus('success');
+        console.log('[RequestInspector] Sent to Cursor:', result.message);
+      } else {
+        setSendStatus('error');
+        console.error('[RequestInspector] Failed to send:', result.message);
+      }
+
+      // Reset status after 3 seconds
+      setTimeout(() => {
+        setSendStatus('idle');
+      }, 3000);
+    } catch (error) {
+      console.error('[RequestInspector] Error sending to Cursor:', error);
+      setSendStatus('error');
+
+      // Reset status after 3 seconds
+      setTimeout(() => {
+        setSendStatus('idle');
+      }, 3000);
+    } finally {
+      setSending(false);
+    }
+  };
 
   if (!selectedEntry) {
     return (
@@ -730,6 +810,24 @@ export const RequestInspector = () => {
         <Tab $active={activeTab === 'timings'} onClick={() => setActiveTab('timings')}>
           Timings
         </Tab>
+        {cursorIntegrationEnabled && (
+          <SendButton
+            onClick={handleSendToCursor}
+            disabled={sending}
+            $success={sendStatus === 'success'}
+            $error={sendStatus === 'error'}
+            title="Send this API call to Cursor for AI analysis"
+          >
+            <Send />
+            {sending
+              ? 'Sending...'
+              : sendStatus === 'success'
+              ? 'Sent!'
+              : sendStatus === 'error'
+              ? 'Failed'
+              : 'Send to Cursor'}
+          </SendButton>
+        )}
         <CloseButton onClick={() => selectEntry(null)} title="Close details">
           <X />
         </CloseButton>
