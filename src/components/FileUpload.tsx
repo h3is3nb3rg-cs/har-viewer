@@ -131,12 +131,12 @@ export const FileUpload = () => {
     }
 
     // Check file size (max 50MB)
-    const maxSize = 50 * 1024 * 1024; // 50MB
-    if (file.size > maxSize) {
-      setError('File is too large. Maximum size is 50MB.');
-      setIsProcessing(false);
-      return;
-    }
+    // const maxSize = 50 * 1024 * 1024; // 50MB
+    // if (file.size > maxSize) {
+    //   setError('File is too large. Maximum size is 50MB.');
+    //   setIsProcessing(false);
+    //   return;
+    // }
 
     try {
       const content = await file.text();
