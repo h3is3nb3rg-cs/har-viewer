@@ -69,11 +69,12 @@ const WaterfallContainer = styled.div`
   margin: 0 ${({ theme }) => theme.spacing.sm};
 `;
 
-const WaterfallBarContainer = styled.div.attrs<{ $offset: number }>(({ $offset }) => ({
+const WaterfallBarContainer = styled.div.attrs<{ $offset: number; $width: number }>(({ $offset, $width }) => ({
   style: {
     left: `${$offset}%`,
+    width: `${Math.max($width, 0.5)}%`,
   },
-}))<{ $offset: number }>`
+}))<{ $offset: number; $width: number }>`
   position: absolute;
   height: 100%;
   display: flex;
@@ -142,7 +143,7 @@ export const WaterfallRow = memo(({ entry, bar, isSelected, onClick }: Waterfall
         <Domain title={entry.domain}>{entry.domain}</Domain>
       </NameContainer>
       <WaterfallContainer>
-        <WaterfallBarContainer $offset={bar.offset}>
+        <WaterfallBarContainer $offset={bar.offset} $width={bar.totalWidth}>
           {bar.segments.map((segment, index) => (
             <Segment
               key={index}

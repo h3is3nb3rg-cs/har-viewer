@@ -5,6 +5,9 @@ import { lightTheme, darkTheme } from '../styles/theme';
 
 type ThemeMode = 'light' | 'dark';
 
+const getSystemTheme = (): ThemeMode =>
+  window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+
 interface ThemeState {
   themeMode: ThemeMode;
   theme: Theme;
@@ -15,8 +18,8 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
-      themeMode: 'light',
-      theme: lightTheme,
+      themeMode: getSystemTheme(),
+      theme: getSystemTheme() === 'dark' ? darkTheme : lightTheme,
       toggleTheme: () =>
         set((state) => {
           const newMode = state.themeMode === 'light' ? 'dark' : 'light';
