@@ -1,3 +1,4 @@
+import { useState, useCallback, useRef } from 'react';
 import styled from 'styled-components';
 
 /**
@@ -7,23 +8,22 @@ import styled from 'styled-components';
 
 /**
  * Main wrapper for split-panel layout (when entry is selected)
- * Creates a 25% list panel and 75% details panel
  */
-export const Wrapper = styled.div`
+const Wrapper = styled.div<{ $isDragging?: boolean }>`
   display: flex;
   flex: 1;
-  gap: ${({ theme }) => theme.spacing.md};
   overflow: hidden;
+  position: relative;
+  user-select: ${({ $isDragging }) => ($isDragging ? 'none' : 'auto')};
 `;
 
 /**
- * Left panel showing the list of entries (25% width)
+ * Left panel showing the list of entries
  */
-export const ListPanel = styled.div`
+const ListPanel = styled.div`
   display: flex;
   flex-direction: column;
-  flex: 0 0 25%;
-  min-width: 300px;
+  min-width: 200px;
   background-color: ${({ theme }) => theme.colors.background};
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.borderRadius.md};
@@ -31,9 +31,9 @@ export const ListPanel = styled.div`
 `;
 
 /**
- * Right panel showing entry details (75% width)
+ * Right panel showing entry details
  */
-export const DetailsPanel = styled.div`
+const DetailsPanel = styled.div`
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -41,6 +41,27 @@ export const DetailsPanel = styled.div`
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.borderRadius.md};
   overflow: hidden;
+`;
+
+/**
+ * Draggable divider between the two panels
+ */
+const DragHandle = styled.div<{ $isDragging: boolean }>`
+  width: 6px;
+  cursor: col-resize;
+  background-color: ${({ $isDragging, theme }) =>
+    $isDragging ? theme.colors.primary : 'transparent'};
+  border-radius: 3px;
+  transition: background-color 0.15s ease;
+  flex-shrink: 0;
+  align-self: stretch;
+  margin: 0 2px;
+  outline: none;
+
+  &:hover,
+  &:focus {
+    background-color: ${({ theme }) => theme.colors.primary};
+  }
 `;
 
 /**
@@ -65,3 +86,66 @@ export const Container = styled.div`
   background-color: ${({ theme }) => theme.colors.background};
   overflow: hidden;
 `;
+
+interface ResizableSplitPanelProps {
+  leftPanel: React.ReactNode;
+  rightPanel: React.ReactNode;
+}
+
+export const ResizableSplitPanel = ({ leftPanel, rightPanel }: ResizableSplitPanelProps) => {
+  const [leftWidthPercent, setLeftWidthPercent] = useState(25);
+  const [isDragging, setIsDragging] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const startDragging = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      if (!wrapperRef.current) return;
+      const rect = wrapperRef.current.getBoundingClientRect();
+      const newPercent = ((moveEvent.clientX - rect.left) / rect.width) * 100;
+      const clamped = Math.min(70, Math.max(15, newPercent));
+      setLeftWidthPercent(clamped);
+    };
+
+    const onMouseUp = () => {
+      setIsDragging(false);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, []);
+
+  const handleDragKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setLeftWidthPercent((prev) => Math.max(15, prev - 1));
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setLeftWidthPercent((prev) => Math.min(70, prev + 1));
+      }
+    },
+    []
+  );
+
+  return (
+    <Wrapper ref={wrapperRef} $isDragging={isDragging}>
+      <ListPanel style={{ flex: `0 0 ${leftWidthPercent}%` }}>
+        {leftPanel}
+      </ListPanel>
+      <DragHandle
+        onMouseDown={startDragging}
+        onKeyDown={handleDragKeyDown}
+        tabIndex={0}
+        $isDragging={isDragging}
+      />
+      <DetailsPanel>
+        {rightPanel}
+      </DetailsPanel>
+    </Wrapper>
+  );
+};

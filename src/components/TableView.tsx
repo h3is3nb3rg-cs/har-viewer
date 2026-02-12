@@ -1,4 +1,4 @@
-import { useMemo, lazy, Suspense } from 'react';
+import { useMemo, useRef, useEffect, useState, useCallback, lazy, Suspense } from 'react';
 import styled from 'styled-components';
 import { useHAR } from '@contexts/HARContext';
 
@@ -7,8 +7,9 @@ import type { FilterType } from '../types/filters';
 import { formatDuration, formatBytes } from '@utils/harParser';
 import { useCustomFiltersStore } from '../stores/customFiltersStore';
 import { applyFilters } from '../utils/filterUtils';
-import { Wrapper, ListPanel, DetailsPanel, Container } from './shared/ViewLayout';
+import { ResizableSplitPanel, Container } from './shared/ViewLayout';
 import { StatusBadge } from './shared/StatusBadge';
+import { useListKeyboardNav } from '@hooks/useListKeyboardNav';
 
 const TableWrapper = styled.div`
   flex: 1;
@@ -21,6 +22,7 @@ const TableScrollContainer = styled.div`
   flex: 1;
   overflow-x: auto;
   overflow-y: auto;
+  outline: none;
 `;
 
 const Table = styled.table`
@@ -46,6 +48,21 @@ const Th = styled.th`
   color: ${({ theme }) => theme.colors.text};
   white-space: nowrap;
   height: 42px;
+`;
+
+const SortableTh = styled(Th)`
+  cursor: pointer;
+  user-select: none;
+  transition: color ${({ theme }) => theme.transitions.fast};
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.primary};
+  }
+`;
+
+const SortIndicator = styled.span`
+  margin-left: 4px;
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
 `;
 
 const Tbody = styled.tbody``;
@@ -149,6 +166,9 @@ const LoadingContainer = styled.div`
   font-size: ${({ theme }) => theme.typography.fontSize.md};
 `;
 
+type SortColumn = 'size' | 'time';
+type SortDirection = 'asc' | 'desc';
+
 interface TableViewProps {
   activeFilter: FilterType;
   searchTerm: string;
@@ -162,6 +182,63 @@ export const TableView = ({ activeFilter, searchTerm }: TableViewProps) => {
     return applyFilters(entries, activeFilter, customFilters, searchTerm);
   }, [entries, activeFilter, customFilters, searchTerm]);
 
+  const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  const handleSort = useCallback((column: SortColumn) => {
+    if (sortColumn === column) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else {
+        // Third click: reset to no sort
+        setSortColumn(null);
+        setSortDirection('asc');
+      }
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  }, [sortColumn, sortDirection]);
+
+  const sortedEntries = useMemo(() => {
+    if (!sortColumn) return filteredEntries;
+    const sorted = [...filteredEntries];
+    const multiplier = sortDirection === 'asc' ? 1 : -1;
+    sorted.sort((a, b) => {
+      switch (sortColumn) {
+        case 'size':
+          return (a.response.content.size - b.response.content.size) * multiplier;
+        case 'time':
+          return (a.time - b.time) * multiplier;
+        default:
+          return 0;
+      }
+    });
+    return sorted;
+  }, [filteredEntries, sortColumn, sortDirection]);
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const { handleKeyDown } = useListKeyboardNav({
+    filteredEntries: sortedEntries,
+    selectedEntry,
+    selectEntry,
+  });
+
+  useEffect(() => {
+    if (!scrollContainerRef.current) return;
+    if (selectedEntry) {
+      const row = scrollContainerRef.current.querySelector(
+        `[data-entry-index="${selectedEntry.index}"]`
+      );
+      if (row) {
+        row.scrollIntoView({ block: 'nearest' });
+      }
+    }
+    // Re-focus the scroll container after layout changes (e.g. split panel mount/unmount)
+    scrollContainerRef.current.focus();
+  }, [selectedEntry]);
+
   if (entries.length === 0) {
     return (
       <Container>
@@ -172,21 +249,26 @@ export const TableView = ({ activeFilter, searchTerm }: TableViewProps) => {
 
   const tableContent = (
     <TableWrapper>
-      <TableScrollContainer>
+      <TableScrollContainer ref={scrollContainerRef} tabIndex={0} onKeyDown={handleKeyDown}>
         <Table>
           <Thead>
             <tr>
               <Th>Method</Th>
               <Th>Endpoint</Th>
               <Th>Status</Th>
-              <Th>Size</Th>
-              <Th>Time</Th>
+              <SortableTh onClick={() => handleSort('size')}>
+                Size{sortColumn === 'size' && <SortIndicator>{sortDirection === 'asc' ? '▲' : '▼'}</SortIndicator>}
+              </SortableTh>
+              <SortableTh onClick={() => handleSort('time')}>
+                Time{sortColumn === 'time' && <SortIndicator>{sortDirection === 'asc' ? '▲' : '▼'}</SortIndicator>}
+              </SortableTh>
             </tr>
           </Thead>
           <Tbody>
-            {filteredEntries.map((entry) => (
+            {sortedEntries.map((entry) => (
               <Tr
                 key={entry.index}
+                data-entry-index={entry.index}
                 $isSelected={selectedEntry?.index === entry.index}
                 onClick={() => selectEntry(entry)}
               >
@@ -221,16 +303,13 @@ export const TableView = ({ activeFilter, searchTerm }: TableViewProps) => {
   }
 
   return (
-    <Wrapper>
-      <ListPanel>
-        {tableContent}
-      </ListPanel>
-
-      <DetailsPanel>
+    <ResizableSplitPanel
+      leftPanel={tableContent}
+      rightPanel={
         <Suspense fallback={<LoadingContainer>Loading details...</LoadingContainer>}>
           <RequestInspector />
         </Suspense>
-      </DetailsPanel>
-    </Wrapper>
+      }
+    />
   );
 };

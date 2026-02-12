@@ -143,6 +143,12 @@ const Key = styled.span`
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
 `;
 
+const ArrayIndex = styled.span`
+  color: ${({ theme }) => theme.colors.textMuted};
+  font-style: italic;
+  font-weight: normal;
+`;
+
 const StringValue = styled.span<{ $isSelected?: boolean }>`
   color: ${({ theme }) => theme.colors.success};
   position: relative;
@@ -581,7 +587,11 @@ export const JsonViewer = ({
       elements.push(
         <Line key={currentPath} $indent={indent} ref={isCurrentMatch ? currentMatchRef : undefined}>
           <ToggleButton style={{ visibility: 'hidden' }} />
-          {typeof key === 'string' && <Key>{highlightText(key)}:</Key>}
+          {typeof key === 'string' ? (
+            <Key>{highlightText(key)}:</Key>
+          ) : (
+            <ArrayIndex>{key}:</ArrayIndex>
+          )}
           <NullValue $isSelected={isSelected} onClick={() => handleValueClick(currentPath)}>null</NullValue>
           {!isLast && <Comma>,</Comma>}
           <CopyButton
@@ -602,7 +612,11 @@ export const JsonViewer = ({
           <ToggleButton onClick={() => hasItems && togglePath(currentPath)}>
             {hasItems ? (expanded ? '▼' : '▶') : ' '}
           </ToggleButton>
-          {typeof key === 'string' && <Key>{highlightText(key)}:</Key>}
+          {typeof key === 'string' ? (
+            <Key>{highlightText(key)}:</Key>
+          ) : (
+            <ArrayIndex>{key}:</ArrayIndex>
+          )}
           <Bracket>[</Bracket>
           {!expanded && hasItems && <Expandable>{getCollapsedPreview(value, true)}</Expandable>}
           {!hasItems && <Bracket>]</Bracket>}
@@ -632,7 +646,11 @@ export const JsonViewer = ({
           <ToggleButton onClick={() => hasKeys && togglePath(currentPath)}>
             {hasKeys ? (expanded ? '▼' : '▶') : ' '}
           </ToggleButton>
-          {typeof key === 'string' && <Key>{highlightText(key)}:</Key>}
+          {typeof key === 'string' ? (
+            <Key>{highlightText(key)}:</Key>
+          ) : (
+            <ArrayIndex>{key}:</ArrayIndex>
+          )}
           <Bracket>{'{'}</Bracket>
           {!expanded && hasKeys && <Expandable>{getCollapsedPreview(value, false)}</Expandable>}
           {!hasKeys && <Bracket>{'}'}</Bracket>}
@@ -656,7 +674,11 @@ export const JsonViewer = ({
       elements.push(
         <Line key={currentPath} $indent={indent} ref={isCurrentMatch ? currentMatchRef : undefined}>
           <ToggleButton style={{ visibility: 'hidden' }} />
-          {typeof key === 'string' && <Key>{highlightText(key)}:</Key>}
+          {typeof key === 'string' ? (
+            <Key>{highlightText(key)}:</Key>
+          ) : (
+            <ArrayIndex>{key}:</ArrayIndex>
+          )}
           <StringValue $isSelected={isSelected} onClick={() => handleValueClick(currentPath)}>"{highlightText(value)}"</StringValue>
           {!isLast && <Comma>,</Comma>}
           <CopyButton
@@ -672,7 +694,11 @@ export const JsonViewer = ({
       elements.push(
         <Line key={currentPath} $indent={indent} ref={isCurrentMatch ? currentMatchRef : undefined}>
           <ToggleButton style={{ visibility: 'hidden' }} />
-          {typeof key === 'string' && <Key>{highlightText(key)}:</Key>}
+          {typeof key === 'string' ? (
+            <Key>{highlightText(key)}:</Key>
+          ) : (
+            <ArrayIndex>{key}:</ArrayIndex>
+          )}
           <NumberValue $isSelected={isSelected} onClick={() => handleValueClick(currentPath)}>{highlightText(String(value))}</NumberValue>
           {!isLast && <Comma>,</Comma>}
           <CopyButton
@@ -688,7 +714,11 @@ export const JsonViewer = ({
       elements.push(
         <Line key={currentPath} $indent={indent} ref={isCurrentMatch ? currentMatchRef : undefined}>
           <ToggleButton style={{ visibility: 'hidden' }} />
-          {typeof key === 'string' && <Key>{highlightText(key)}:</Key>}
+          {typeof key === 'string' ? (
+            <Key>{highlightText(key)}:</Key>
+          ) : (
+            <ArrayIndex>{key}:</ArrayIndex>
+          )}
           <BooleanValue $isSelected={isSelected} onClick={() => handleValueClick(currentPath)}>{highlightText(value.toString())}</BooleanValue>
           {!isLast && <Comma>,</Comma>}
           <CopyButton

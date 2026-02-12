@@ -1,4 +1,4 @@
-import { useMemo, lazy, Suspense } from 'react';
+import { useMemo, useRef, useEffect, lazy, Suspense } from 'react';
 import styled from 'styled-components';
 import { useHAR } from '@contexts/HARContext';
 import { WaterfallRow } from './WaterfallRow';
@@ -8,7 +8,8 @@ import { calculateWaterfallData, getTimeMarkers } from '@utils/waterfallCalculat
 import type { FilterType } from '../types/filters';
 import { useCustomFiltersStore } from '../stores/customFiltersStore';
 import { applyFilters } from '../utils/filterUtils';
-import { Wrapper, ListPanel, DetailsPanel, Container } from './shared/ViewLayout';
+import { ResizableSplitPanel, Container } from './shared/ViewLayout';
+import { useListKeyboardNav } from '@hooks/useListKeyboardNav';
 
 const Header = styled.div`
   display: grid;
@@ -65,6 +66,7 @@ const Body = styled.div`
   flex: 1;
   overflow-y: auto;
   overflow-x: auto;
+  outline: none;
 `;
 
 const EmptyState = styled.div`
@@ -128,6 +130,27 @@ export const WaterfallChart = ({ activeFilter, searchTerm }: WaterfallChartProps
     return getTimeMarkers(waterfallData.totalDuration);
   }, [waterfallData.totalDuration]);
 
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  const { handleKeyDown } = useListKeyboardNav({
+    filteredEntries,
+    selectedEntry,
+    selectEntry,
+  });
+
+  useEffect(() => {
+    if (!bodyRef.current) return;
+    if (selectedEntry) {
+      const row = bodyRef.current.querySelector(
+        `[data-entry-index="${selectedEntry.index}"]`
+      );
+      if (row) {
+        row.scrollIntoView({ block: 'nearest' });
+      }
+    }
+    bodyRef.current.focus();
+  }, [selectedEntry]);
+
   if (entries.length === 0) {
     return (
       <Container>
@@ -153,7 +176,7 @@ export const WaterfallChart = ({ activeFilter, searchTerm }: WaterfallChartProps
         </TimelineHeader>
         <HeaderCell $align="right">Time</HeaderCell>
       </Header>
-      <Body>
+      <Body ref={bodyRef} tabIndex={0} onKeyDown={handleKeyDown}>
         {waterfallData.entries.map((entry, index) => (
           <WaterfallRow
             key={`${entry.index}-${entry.request.url}`}
@@ -206,16 +229,13 @@ export const WaterfallChart = ({ activeFilter, searchTerm }: WaterfallChartProps
   }
 
   return (
-    <Wrapper>
-      <ListPanel>
-        {listContent}
-      </ListPanel>
-
-      <DetailsPanel>
+    <ResizableSplitPanel
+      leftPanel={listContent}
+      rightPanel={
         <Suspense fallback={<LoadingContainer>Loading details...</LoadingContainer>}>
           <RequestInspector />
         </Suspense>
-      </DetailsPanel>
-    </Wrapper>
+      }
+    />
   );
 };

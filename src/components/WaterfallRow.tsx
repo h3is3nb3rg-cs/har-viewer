@@ -135,7 +135,7 @@ const getSegmentTooltip = (type: string, duration: number): string => {
 
 export const WaterfallRow = memo(({ entry, bar, isSelected, onClick }: WaterfallRowProps) => {
   return (
-    <RowContainer $isSelected={isSelected} onClick={onClick}>
+    <RowContainer $isSelected={isSelected} onClick={onClick} data-entry-index={entry.index}>
       <Index>{entry.index + 1}</Index>
       <NameContainer>
         <FileName title={entry.fileName}>{entry.fileName}</FileName>

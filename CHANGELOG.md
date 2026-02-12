@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-02-11
+
+### Added
+- Resizable split panel: draggable divider between list and details panels in Table and Waterfall views, clamped between 15%–70% with hover/focus visual feedback
+- Keyboard navigation for request lists: Arrow Up/Down to navigate entries, Escape to close inspector, auto scroll-into-view
+- Keyboard navigation for inspector tabs: Arrow Left/Right to cycle through tabs
+- Keyboard resize for split panel: Arrow Left/Right on the drag handle to adjust width
+- Column sorting in Table view: click Size or Time headers to sort ascending, descending, or reset to original order, with sort direction indicators
+- Shared `useListKeyboardNav` hook for reusable list keyboard navigation across views
+- Project roadmap (`ROADMAP.md`)
+
+### Changed
+- Split panel layout now uses `ResizableSplitPanel` component instead of manual `Wrapper`/`ListPanel`/`DetailsPanel` assembly in both Table and Waterfall views
+- List containers and inspector tabs receive focus automatically after layout transitions
+
 ## [0.1.0] - 2025-11-06
 
 ### Added
@@ -90,5 +105,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Zero backend required (fully client-side)
 - Hybrid state management (React Context API + Zustand)
 
-[Unreleased]: https://github.com/yourusername/har-viewer/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/yourusername/har-viewer/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/yourusername/har-viewer/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/yourusername/har-viewer/releases/tag/v0.1.0

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import styled from 'styled-components';
 import { X } from 'lucide-react';
 import { useHAR } from '@contexts/HARContext';
@@ -7,6 +7,7 @@ import { JsonViewer, JsonSearchBar } from './JsonViewer';
 import { StatusBadge } from './shared/StatusBadge';
 
 type Tab = 'general' | 'headers' | 'cookies' | 'payload' | 'response' | 'timings';
+const TABS: Tab[] = ['general', 'headers', 'cookies', 'payload', 'response', 'timings'];
 
 const Container = styled.div`
   background-color: ${({ theme }) => theme.colors.background};
@@ -25,6 +26,7 @@ const Tabs = styled.div`
   overflow-x: auto;
   min-height: 42px;
   position: relative;
+  outline: none;
 `;
 
 const Tab = styled.button<{ $active: boolean }>`
@@ -264,6 +266,23 @@ export const RequestInspector = () => {
     setResponseMatchIndex(0);
     setHeadersSearchTerm('');
   }, [selectedEntry?.index]);
+
+  const handleTabKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        const currentIndex = TABS.indexOf(activeTab);
+        const nextIndex = (currentIndex + 1) % TABS.length;
+        setActiveTab(TABS[nextIndex]);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const currentIndex = TABS.indexOf(activeTab);
+        const prevIndex = (currentIndex - 1 + TABS.length) % TABS.length;
+        setActiveTab(TABS[prevIndex]);
+      }
+    },
+    [activeTab]
+  );
 
   if (!selectedEntry) {
     return (
@@ -711,7 +730,7 @@ export const RequestInspector = () => {
 
   return (
     <Container>
-      <Tabs>
+      <Tabs tabIndex={0} onKeyDown={handleTabKeyDown}>
         <Tab $active={activeTab === 'general'} onClick={() => setActiveTab('general')}>
           General
         </Tab>
