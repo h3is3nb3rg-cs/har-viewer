@@ -6,7 +6,7 @@ import type { Entry, ResourceType } from '@types';
  * @returns The detected resource type
  */
 export function getResourceType(entry: Entry): ResourceType {
-  const mimeType = entry.response.content.mimeType.toLowerCase();
+  const mimeType = (entry.response.content.mimeType ?? '').toLowerCase();
   const url = entry.request.url.toLowerCase();
 
   // HTML documents

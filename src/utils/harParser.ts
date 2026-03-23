@@ -64,6 +64,7 @@ export function parseHARFile(content: string): ParseResult {
 }
 
 export function formatBytes(bytes: number): string {
+  if (bytes == null || isNaN(bytes)) return 'N/A';
   if (bytes === 0) return '0 B';
   if (bytes < 0) return 'N/A';
 
