@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { useHAR } from '@contexts/HARContext';
 
 const RequestInspector = lazy(() => import('./RequestInspector').then(module => ({ default: module.RequestInspector })));
-import type { FilterType } from '../types/filters';
+import type { FilterType, SearchScope } from '../types/filters';
 import { formatDuration, formatBytes } from '@utils/harParser';
 import { useCustomFiltersStore } from '../stores/customFiltersStore';
 import { applyFilters } from '../utils/filterUtils';
@@ -172,15 +172,17 @@ type SortDirection = 'asc' | 'desc';
 interface TableViewProps {
   activeFilter: FilterType;
   searchTerm: string;
+  searchScope: SearchScope;
 }
 
-export const TableView = ({ activeFilter, searchTerm }: TableViewProps) => {
+export const TableView = ({ activeFilter, searchTerm, searchScope }: TableViewProps) => {
   const { entries, selectedEntry, selectEntry } = useHAR();
   const { filters: customFilters } = useCustomFiltersStore();
+  const lastAutoSelectKeyRef = useRef<string>('');
 
   const filteredEntries = useMemo(() => {
-    return applyFilters(entries, activeFilter, customFilters, searchTerm);
-  }, [entries, activeFilter, customFilters, searchTerm]);
+    return applyFilters(entries, activeFilter, customFilters, searchTerm, searchScope);
+  }, [entries, activeFilter, customFilters, searchScope, searchTerm]);
 
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -219,6 +221,28 @@ export const TableView = ({ activeFilter, searchTerm }: TableViewProps) => {
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const normalizedSearchTerm = searchTerm.trim();
+    if (!normalizedSearchTerm) {
+      lastAutoSelectKeyRef.current = '';
+      return;
+    }
+
+    const autoSelectKey = `${normalizedSearchTerm}::${searchScope}::${activeFilter}::${sortColumn ?? 'none'}::${sortDirection}::${sortedEntries.length}::${sortedEntries[0]?.index ?? 'none'}`;
+    if (lastAutoSelectKeyRef.current === autoSelectKey) {
+      return;
+    }
+
+    lastAutoSelectKeyRef.current = autoSelectKey;
+
+    if (sortedEntries.length === 0) {
+      selectEntry(null);
+      return;
+    }
+
+    selectEntry(sortedEntries[0]);
+  }, [activeFilter, searchScope, searchTerm, selectEntry, sortColumn, sortDirection, sortedEntries]);
+
   const { handleKeyDown } = useListKeyboardNav({
     filteredEntries: sortedEntries,
     selectedEntry,
@@ -235,8 +259,18 @@ export const TableView = ({ activeFilter, searchTerm }: TableViewProps) => {
         row.scrollIntoView({ block: 'nearest' });
       }
     }
-    // Re-focus the scroll container after layout changes (e.g. split panel mount/unmount)
-    scrollContainerRef.current.focus();
+
+    const activeElement = document.activeElement;
+    const isTypingInField = activeElement instanceof HTMLElement && (
+      activeElement.tagName === 'INPUT' ||
+      activeElement.tagName === 'TEXTAREA' ||
+      activeElement.isContentEditable
+    );
+
+    if (!isTypingInField) {
+      // Re-focus the scroll container after layout changes when focus is not in a form control.
+      scrollContainerRef.current.focus();
+    }
   }, [selectedEntry]);
 
   if (entries.length === 0) {
@@ -307,7 +341,11 @@ export const TableView = ({ activeFilter, searchTerm }: TableViewProps) => {
       leftPanel={tableContent}
       rightPanel={
         <Suspense fallback={<LoadingContainer>Loading details...</LoadingContainer>}>
-          <RequestInspector />
+          <RequestInspector
+            key={`${selectedEntry.index}:${searchScope}:${searchTerm}`}
+            globalSearchTerm={searchTerm}
+            globalSearchScope={searchScope}
+          />
         </Suspense>
       }
     />

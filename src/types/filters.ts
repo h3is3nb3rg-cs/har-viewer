@@ -6,6 +6,7 @@ export type FilterType = BuiltInFilterType | string;
 
 // Pattern types for custom filters
 export type PatternType = 'regex' | 'path';
+export type SearchScope = 'payload-response' | 'all';
 
 // Custom filter interface
 export interface CustomFilter {

@@ -10,7 +10,7 @@ import { FilterBar } from '@components/FilterBar';
 import { ToonExportModal } from '@components/ToonExportModal';
 import { useHAR } from '@contexts/HARContext';
 import { useToonExport } from '@hooks/useToonExport';
-import type { FilterType } from './types/filters';
+import type { FilterType, SearchScope } from './types/filters';
 import { useCustomFiltersStore } from './stores/customFiltersStore';
 import { calculateFilterCounts } from './utils/filterUtils';
 
@@ -170,6 +170,7 @@ function App() {
   const { filters: customFilters } = useCustomFiltersStore();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [searchScope, setSearchScope] = useState<SearchScope>('payload-response');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const {
     isOpen: isToonModalOpen,
@@ -237,7 +238,9 @@ function App() {
           onFilterChange={setActiveFilter}
           filterCounts={filterCounts}
           searchTerm={searchTerm}
+          searchScope={searchScope}
           onSearchChange={setSearchTerm}
+          onSearchScopeChange={setSearchScope}
         />
       )}
       <MainContent>
@@ -252,9 +255,9 @@ function App() {
         ) : (
           <ContentContainer>
             {viewMode === 'table' ? (
-              <TableView activeFilter={activeFilter} searchTerm={searchTerm} />
+              <TableView activeFilter={activeFilter} searchTerm={searchTerm} searchScope={searchScope} />
             ) : viewMode === 'waterfall' ? (
-              <WaterfallChart activeFilter={activeFilter} searchTerm={searchTerm} />
+              <WaterfallChart activeFilter={activeFilter} searchTerm={searchTerm} searchScope={searchScope} />
             ) : (
               <SummaryDashboard />
             )}

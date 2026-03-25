@@ -5,7 +5,7 @@ import { WaterfallRow } from './WaterfallRow';
 
 const RequestInspector = lazy(() => import('./RequestInspector').then(module => ({ default: module.RequestInspector })));
 import { calculateWaterfallData, getTimeMarkers } from '@utils/waterfallCalculations';
-import type { FilterType } from '../types/filters';
+import type { FilterType, SearchScope } from '../types/filters';
 import { useCustomFiltersStore } from '../stores/customFiltersStore';
 import { applyFilters } from '../utils/filterUtils';
 import { ResizableSplitPanel, Container } from './shared/ViewLayout';
@@ -112,16 +112,18 @@ const LegendColor = styled.div<{ $color: string }>`
 interface WaterfallChartProps {
   activeFilter: FilterType;
   searchTerm: string;
+  searchScope: SearchScope;
 }
 
-export const WaterfallChart = ({ activeFilter, searchTerm }: WaterfallChartProps) => {
+export const WaterfallChart = ({ activeFilter, searchTerm, searchScope }: WaterfallChartProps) => {
   const theme = useTheme();
   const { entries, selectedEntry, selectEntry } = useHAR();
   const { filters: customFilters } = useCustomFiltersStore();
+  const lastAutoSelectKeyRef = useRef<string>('');
 
   const filteredEntries = useMemo(() => {
-    return applyFilters(entries, activeFilter, customFilters, searchTerm);
-  }, [entries, activeFilter, customFilters, searchTerm]);
+    return applyFilters(entries, activeFilter, customFilters, searchTerm, searchScope);
+  }, [entries, activeFilter, customFilters, searchScope, searchTerm]);
 
   const waterfallData = useMemo(() => {
     return calculateWaterfallData(filteredEntries);
@@ -132,6 +134,28 @@ export const WaterfallChart = ({ activeFilter, searchTerm }: WaterfallChartProps
   }, [waterfallData.totalDuration]);
 
   const bodyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const normalizedSearchTerm = searchTerm.trim();
+    if (!normalizedSearchTerm) {
+      lastAutoSelectKeyRef.current = '';
+      return;
+    }
+
+    const autoSelectKey = `${normalizedSearchTerm}::${searchScope}::${activeFilter}::${filteredEntries.length}::${filteredEntries[0]?.index ?? 'none'}`;
+    if (lastAutoSelectKeyRef.current === autoSelectKey) {
+      return;
+    }
+
+    lastAutoSelectKeyRef.current = autoSelectKey;
+
+    if (filteredEntries.length === 0) {
+      selectEntry(null);
+      return;
+    }
+
+    selectEntry(filteredEntries[0]);
+  }, [activeFilter, filteredEntries, searchScope, searchTerm, selectEntry]);
 
   const { handleKeyDown } = useListKeyboardNav({
     filteredEntries,
@@ -149,7 +173,17 @@ export const WaterfallChart = ({ activeFilter, searchTerm }: WaterfallChartProps
         row.scrollIntoView({ block: 'nearest' });
       }
     }
-    bodyRef.current.focus();
+
+    const activeElement = document.activeElement;
+    const isTypingInField = activeElement instanceof HTMLElement && (
+      activeElement.tagName === 'INPUT' ||
+      activeElement.tagName === 'TEXTAREA' ||
+      activeElement.isContentEditable
+    );
+
+    if (!isTypingInField) {
+      bodyRef.current.focus();
+    }
   }, [selectedEntry]);
 
   if (entries.length === 0) {
@@ -234,7 +268,11 @@ export const WaterfallChart = ({ activeFilter, searchTerm }: WaterfallChartProps
       leftPanel={listContent}
       rightPanel={
         <Suspense fallback={<LoadingContainer>Loading details...</LoadingContainer>}>
-          <RequestInspector />
+          <RequestInspector
+            key={`${selectedEntry.index}:${searchScope}:${searchTerm}`}
+            globalSearchTerm={searchTerm}
+            globalSearchScope={searchScope}
+          />
         </Suspense>
       }
     />
