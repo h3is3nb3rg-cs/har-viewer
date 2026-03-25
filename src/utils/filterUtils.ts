@@ -1,5 +1,8 @@
 import type { EntryWithMetadata } from '@types';
-import type { FilterType, BuiltInFilterType, CustomFilter } from '../types/filters';
+import type { FilterType, BuiltInFilterType, CustomFilter, SearchScope } from '../types/filters';
+
+const entrySearchBlobCache = new WeakMap<EntryWithMetadata, string>();
+const payloadResponseSearchBlobCache = new WeakMap<EntryWithMetadata, string>();
 
 /**
  * Check if a URL matches a custom filter pattern
@@ -21,6 +24,56 @@ export function matchesCustomFilter(url: string, filter: CustomFilter): boolean 
     console.warn(`Filter pattern error for "${filter.name}":`, error);
     return false;
   }
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function getEntrySearchBlob(entry: EntryWithMetadata, searchScope: SearchScope): string {
+  const cache = searchScope === 'payload-response'
+    ? payloadResponseSearchBlobCache
+    : entrySearchBlobCache;
+
+  const cached = cache.get(entry);
+  if (cached) {
+    return cached;
+  }
+
+  const searchBlob = searchScope === 'payload-response'
+    ? JSON.stringify({
+        request: {
+          postData: entry.request.postData,
+        },
+        response: {
+          content: entry.response.content,
+        },
+      })
+    : JSON.stringify({
+        startedDateTime: entry.startedDateTime,
+        time: entry.time,
+        request: entry.request,
+        response: entry.response,
+        cache: entry.cache,
+        timings: entry.timings,
+        serverIPAddress: entry.serverIPAddress,
+        connection: entry.connection,
+        comment: entry.comment,
+        resourceType: entry.resourceType,
+        domain: entry.domain,
+        fileName: entry.fileName,
+      });
+
+  cache.set(entry, searchBlob);
+  return searchBlob;
+}
+
+function matchesEntrySearch(
+  entry: EntryWithMetadata,
+  searchPattern: RegExp,
+  searchScope: SearchScope
+): boolean {
+  return searchPattern.test(getEntrySearchBlob(entry, searchScope));
 }
 
 /**
@@ -55,7 +108,8 @@ export function applyFilters(
   entries: EntryWithMetadata[],
   filterType: FilterType,
   customFilters: CustomFilter[],
-  searchTerm?: string
+  searchTerm?: string,
+  searchScope: SearchScope = 'payload-response'
 ): EntryWithMetadata[] {
   let filtered = entries;
 
@@ -79,12 +133,8 @@ export function applyFilters(
 
   // Apply search term filter
   if (searchTerm && searchTerm.trim()) {
-    const lowerSearchTerm = searchTerm.toLowerCase();
-    filtered = filtered.filter(
-      (entry) =>
-        entry.fileName.toLowerCase().includes(lowerSearchTerm) ||
-        entry.request.url.toLowerCase().includes(lowerSearchTerm)
-    );
+    const searchPattern = new RegExp(escapeRegExp(searchTerm.trim()), 'i');
+    filtered = filtered.filter((entry) => matchesEntrySearch(entry, searchPattern, searchScope));
   }
 
   return filtered;

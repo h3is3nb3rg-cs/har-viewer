@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useRef } from 'react';
 import styled, { useTheme } from 'styled-components';
 import { X } from 'lucide-react';
 import { useHAR } from '@contexts/HARContext';
 import { formatBytes, formatDuration, formatTimestamp } from '@utils/harParser';
 import { JsonViewer, JsonSearchBar } from './JsonViewer';
 import { StatusBadge } from './shared/StatusBadge';
+import type { SearchScope } from '../types/filters';
 
 type Tab = 'general' | 'headers' | 'cookies' | 'payload' | 'response' | 'timings';
 const TABS: Tab[] = ['general', 'headers', 'cookies', 'payload', 'response', 'timings'];
@@ -153,8 +155,8 @@ const Td = styled.td`
 `;
 
 const Highlight = styled.mark`
-  background-color: ${({ theme }) => theme.colors.warning};
-  color: ${({ theme }) => theme.colors.background};
+  background-color: #fff3a3;
+  color: #3d2f00;
   padding: 1px 2px;
   border-radius: 2px;
 `;
@@ -249,9 +251,18 @@ const TimingBarFill = styled.div<{ $width: number; $color: string }>`
   font-family: ${({ theme }) => theme.typography.fontFamilyMono};
 `;
 
-export const RequestInspector = () => {
+interface RequestInspectorProps {
+  globalSearchTerm?: string;
+  globalSearchScope?: SearchScope;
+}
+
+export const RequestInspector = ({
+  globalSearchTerm = '',
+  globalSearchScope = 'payload-response',
+}: RequestInspectorProps) => {
   const theme = useTheme();
   const { selectedEntry, selectEntry } = useHAR();
+  const contentRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<Tab>('general');
   const [payloadSearchTerm, setPayloadSearchTerm] = useState('');
   const [payloadMatchIndex, setPayloadMatchIndex] = useState(0);
@@ -259,14 +270,14 @@ export const RequestInspector = () => {
   const [responseMatchIndex, setResponseMatchIndex] = useState(0);
   const [headersSearchTerm, setHeadersSearchTerm] = useState('');
 
-  // Clear all search terms when a new API call is selected
+  // Seed tab-level search/highlight state from the global HAR search.
   useEffect(() => {
-    setPayloadSearchTerm('');
+    setPayloadSearchTerm(globalSearchTerm);
     setPayloadMatchIndex(0);
-    setResponseSearchTerm('');
+    setResponseSearchTerm(globalSearchTerm);
     setResponseMatchIndex(0);
-    setHeadersSearchTerm('');
-  }, [selectedEntry?.index]);
+    setHeadersSearchTerm(globalSearchScope === 'all' ? globalSearchTerm : '');
+  }, [globalSearchScope, globalSearchTerm, selectedEntry?.index]);
 
   const handleTabKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -284,6 +295,132 @@ export const RequestInspector = () => {
     },
     [activeTab]
   );
+
+  const inspectorSearchTerm = globalSearchTerm.trim();
+  const requestForMatch = selectedEntry?.request;
+  const responseForMatch = selectedEntry?.response;
+  const timingsForMatch = selectedEntry?.timings;
+
+  const matchesText = useCallback((value: string | null | undefined, searchTerm: string) => {
+    if (!searchTerm) return false;
+    return (value ?? '').toLowerCase().includes(searchTerm.toLowerCase());
+  }, []);
+
+  useEffect(() => {
+    if (!selectedEntry || !requestForMatch || !responseForMatch || !timingsForMatch || !inspectorSearchTerm) {
+      return;
+    }
+
+    const searchLower = inspectorSearchTerm.toLowerCase();
+    const generalMatches = globalSearchScope === 'all' && [
+      requestForMatch.url,
+      requestForMatch.method,
+      requestForMatch.httpVersion,
+      selectedEntry.serverIPAddress,
+      String(responseForMatch.status),
+      responseForMatch.statusText,
+      responseForMatch.httpVersion,
+      responseForMatch.content.mimeType,
+      formatTimestamp(selectedEntry.startedDateTime),
+      formatDuration(selectedEntry.time),
+      formatBytes(responseForMatch.content.size),
+      responseForMatch.content.compression && responseForMatch.content.compression > 0
+        ? formatBytes(responseForMatch.content.size + responseForMatch.content.compression)
+        : '',
+    ].some((value) => matchesText(value, searchLower));
+
+    const headersMatches = globalSearchScope === 'all' && [...requestForMatch.headers, ...responseForMatch.headers].some((header) =>
+      matchesText(`${header.name} ${header.value}`, searchLower)
+    );
+
+    const cookiesMatches = globalSearchScope === 'all' && [...requestForMatch.cookies, ...responseForMatch.cookies].some((cookie) =>
+      matchesText(
+        [
+          cookie.name,
+          cookie.value,
+          cookie.domain,
+          cookie.path,
+          cookie.expires,
+        ].join(' '),
+        searchLower
+      )
+    );
+
+    const payloadMatches = requestForMatch.postData
+      ? matchesText(
+          JSON.stringify({
+            mimeType: requestForMatch.postData.mimeType,
+            text: requestForMatch.postData.text,
+            params: requestForMatch.postData.params,
+          }),
+          searchLower
+        )
+      : false;
+
+    const responseMatches = matchesText(
+      JSON.stringify({
+        mimeType: responseForMatch.content.mimeType,
+        encoding: responseForMatch.content.encoding,
+        text: responseForMatch.content.text,
+      }),
+      searchLower
+    );
+
+    const timingsMatches = globalSearchScope === 'all' && matchesText(
+      JSON.stringify({
+        startedDateTime: selectedEntry.startedDateTime,
+        totalTime: selectedEntry.time,
+        timings: timingsForMatch,
+      }),
+      searchLower
+    );
+
+    if (globalSearchScope === 'payload-response') {
+      if (payloadMatches) {
+        setActiveTab('payload');
+      } else if (responseMatches) {
+        setActiveTab('response');
+      }
+      return;
+    }
+
+    if (generalMatches) {
+      setActiveTab('general');
+    } else if (headersMatches) {
+      setActiveTab('headers');
+    } else if (cookiesMatches) {
+      setActiveTab('cookies');
+    } else if (payloadMatches) {
+      setActiveTab('payload');
+    } else if (responseMatches) {
+      setActiveTab('response');
+    } else if (timingsMatches) {
+      setActiveTab('timings');
+    }
+  }, [
+    globalSearchScope,
+    inspectorSearchTerm,
+    matchesText,
+    requestForMatch,
+    responseForMatch,
+    selectedEntry,
+    timingsForMatch,
+  ]);
+
+  useEffect(() => {
+    if (!contentRef.current || !inspectorSearchTerm) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      const firstHighlight = contentRef.current?.querySelector('mark');
+      if (firstHighlight instanceof HTMLElement) {
+        firstHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [activeTab, inspectorSearchTerm, selectedEntry?.index]);
 
   if (!selectedEntry) {
     return (
@@ -304,13 +441,13 @@ export const RequestInspector = () => {
           <SectionTitle>Request</SectionTitle>
           <InfoGrid>
             <Label>URL:</Label>
-            <Value>{request.url}</Value>
+            <Value>{highlightText(request.url, inspectorSearchTerm)}</Value>
             <Label>Method:</Label>
-            <Value>{request.method}</Value>
+            <Value>{highlightText(request.method, inspectorSearchTerm)}</Value>
             <Label>HTTP Version:</Label>
-            <Value>{request.httpVersion}</Value>
+            <Value>{highlightText(request.httpVersion, inspectorSearchTerm)}</Value>
             <Label>Server IP:</Label>
-            <Value>{selectedEntry.serverIPAddress || 'N/A'}</Value>
+            <Value>{highlightText(selectedEntry.serverIPAddress || 'N/A', inspectorSearchTerm)}</Value>
           </InfoGrid>
         </Section>
 
@@ -320,18 +457,26 @@ export const RequestInspector = () => {
             <Label>Status:</Label>
             <Value>
               <StatusBadge $status={response.status}>
-                {response.status} {response.statusText}
+                {highlightText(`${response.status} ${response.statusText}`, inspectorSearchTerm)}
               </StatusBadge>
             </Value>
             <Label>HTTP Version:</Label>
-            <Value>{response.httpVersion}</Value>
+            <Value>{highlightText(response.httpVersion, inspectorSearchTerm)}</Value>
             <Label>Content Type:</Label>
-            <Value>{response.content.mimeType}</Value>
+            <Value>{highlightText(response.content.mimeType, inspectorSearchTerm)}</Value>
             <Label>Content Size:</Label>
             <Value>
-              {formatBytes(response.content.size)}
+              {highlightText(formatBytes(response.content.size), inspectorSearchTerm)}
               {response.content.compression && response.content.compression > 0 && (
-                <> (compressed from {formatBytes(response.content.size + response.content.compression)})</>
+                <>
+                  {' '}
+                  (compressed from{' '}
+                  {highlightText(
+                    formatBytes(response.content.size + response.content.compression),
+                    inspectorSearchTerm
+                  )}
+                  )
+                </>
               )}
             </Value>
           </InfoGrid>
@@ -341,9 +486,9 @@ export const RequestInspector = () => {
           <SectionTitle>Timing</SectionTitle>
           <InfoGrid>
             <Label>Started:</Label>
-            <Value>{formatTimestamp(selectedEntry.startedDateTime)}</Value>
+            <Value>{highlightText(formatTimestamp(selectedEntry.startedDateTime), inspectorSearchTerm)}</Value>
             <Label>Total Duration:</Label>
-            <Value>{formatDuration(totalTime)}</Value>
+            <Value>{highlightText(formatDuration(totalTime), inspectorSearchTerm)}</Value>
           </InfoGrid>
         </Section>
       </>
@@ -373,26 +518,16 @@ export const RequestInspector = () => {
   };
 
   const renderHeadersTab = () => {
-    // Filter headers based on search term
-    const filteredRequestHeaders = request.headers.filter(header => {
-      if (!headersSearchTerm.trim()) return true;
-      const searchLower = headersSearchTerm.toLowerCase();
-      return (
-        header.name.toLowerCase().includes(searchLower) ||
-        header.value.toLowerCase().includes(searchLower)
-      );
-    });
+    const searchLower = headersSearchTerm.trim().toLowerCase();
+    const totalMatches = searchLower
+      ? [...request.headers, ...response.headers].reduce((count, header) => {
+          const headerMatches =
+            header.name.toLowerCase().includes(searchLower) ||
+            header.value.toLowerCase().includes(searchLower);
 
-    const filteredResponseHeaders = response.headers.filter(header => {
-      if (!headersSearchTerm.trim()) return true;
-      const searchLower = headersSearchTerm.toLowerCase();
-      return (
-        header.name.toLowerCase().includes(searchLower) ||
-        header.value.toLowerCase().includes(searchLower)
-      );
-    });
-
-    const totalMatches = filteredRequestHeaders.length + filteredResponseHeaders.length;
+          return count + (headerMatches ? 1 : 0);
+        }, 0)
+      : 0;
     const totalHeaders = request.headers.length + response.headers.length;
 
     return (
@@ -406,57 +541,49 @@ export const RequestInspector = () => {
           />
           {headersSearchTerm && (
             <SearchStats>
-              Showing {totalMatches} of {totalHeaders} headers
+              Highlighting matches in {totalMatches} of {totalHeaders} headers
             </SearchStats>
           )}
         </SearchInputWrapper>
 
         <Section>
-          <SectionTitle>Request Headers ({filteredRequestHeaders.length}{headersSearchTerm ? ` of ${request.headers.length}` : ''})</SectionTitle>
-          {filteredRequestHeaders.length === 0 ? (
-            <EmptyState>No matching request headers</EmptyState>
-          ) : (
-            <Table>
-              <thead>
-                <tr>
-                  <Th>Name</Th>
-                  <Th>Value</Th>
+          <SectionTitle>Request Headers ({request.headers.length})</SectionTitle>
+          <Table>
+            <thead>
+              <tr>
+                <Th>Name</Th>
+                <Th>Value</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {request.headers.map((header, index) => (
+                <tr key={index}>
+                  <Td>{highlightText(header.name, headersSearchTerm)}</Td>
+                  <Td>{highlightText(header.value, headersSearchTerm)}</Td>
                 </tr>
-              </thead>
-              <tbody>
-                {filteredRequestHeaders.map((header, index) => (
-                  <tr key={index}>
-                    <Td>{highlightText(header.name, headersSearchTerm)}</Td>
-                    <Td>{highlightText(header.value, headersSearchTerm)}</Td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          )}
+              ))}
+            </tbody>
+          </Table>
         </Section>
 
         <Section>
-          <SectionTitle>Response Headers ({filteredResponseHeaders.length}{headersSearchTerm ? ` of ${response.headers.length}` : ''})</SectionTitle>
-          {filteredResponseHeaders.length === 0 ? (
-            <EmptyState>No matching response headers</EmptyState>
-          ) : (
-            <Table>
-              <thead>
-                <tr>
-                  <Th>Name</Th>
-                  <Th>Value</Th>
+          <SectionTitle>Response Headers ({response.headers.length})</SectionTitle>
+          <Table>
+            <thead>
+              <tr>
+                <Th>Name</Th>
+                <Th>Value</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {response.headers.map((header, index) => (
+                <tr key={index}>
+                  <Td>{highlightText(header.name, headersSearchTerm)}</Td>
+                  <Td>{highlightText(header.value, headersSearchTerm)}</Td>
                 </tr>
-              </thead>
-              <tbody>
-                {filteredResponseHeaders.map((header, index) => (
-                  <tr key={index}>
-                    <Td>{highlightText(header.name, headersSearchTerm)}</Td>
-                    <Td>{highlightText(header.value, headersSearchTerm)}</Td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          )}
+              ))}
+            </tbody>
+          </Table>
         </Section>
       </>
     );
@@ -481,10 +608,10 @@ export const RequestInspector = () => {
             <tbody>
               {request.cookies.map((cookie, index) => (
                 <tr key={index}>
-                  <Td>{cookie.name}</Td>
-                  <Td>{cookie.value}</Td>
-                  <Td>{cookie.domain || 'N/A'}</Td>
-                  <Td>{cookie.path || 'N/A'}</Td>
+                  <Td>{highlightText(cookie.name, inspectorSearchTerm)}</Td>
+                  <Td>{highlightText(cookie.value, inspectorSearchTerm)}</Td>
+                  <Td>{highlightText(cookie.domain || 'N/A', inspectorSearchTerm)}</Td>
+                  <Td>{highlightText(cookie.path || 'N/A', inspectorSearchTerm)}</Td>
                 </tr>
               ))}
             </tbody>
@@ -510,11 +637,11 @@ export const RequestInspector = () => {
             <tbody>
               {response.cookies.map((cookie, index) => (
                 <tr key={index}>
-                  <Td>{cookie.name}</Td>
-                  <Td>{cookie.value}</Td>
-                  <Td>{cookie.domain || 'N/A'}</Td>
-                  <Td>{cookie.path || 'N/A'}</Td>
-                  <Td>{cookie.expires || 'Session'}</Td>
+                  <Td>{highlightText(cookie.name, inspectorSearchTerm)}</Td>
+                  <Td>{highlightText(cookie.value, inspectorSearchTerm)}</Td>
+                  <Td>{highlightText(cookie.domain || 'N/A', inspectorSearchTerm)}</Td>
+                  <Td>{highlightText(cookie.path || 'N/A', inspectorSearchTerm)}</Td>
+                  <Td>{highlightText(cookie.expires || 'Session', inspectorSearchTerm)}</Td>
                 </tr>
               ))}
             </tbody>
@@ -556,7 +683,7 @@ export const RequestInspector = () => {
             </SectionHeader>
             <InfoGrid>
               <Label>MIME Type:</Label>
-              <Value>{request.postData.mimeType}</Value>
+              <Value>{highlightText(request.postData.mimeType, inspectorSearchTerm)}</Value>
             </InfoGrid>
             <JsonViewer
               data={jsonData}
@@ -570,10 +697,10 @@ export const RequestInspector = () => {
             <SectionTitle>Request Payload</SectionTitle>
             <InfoGrid>
               <Label>MIME Type:</Label>
-              <Value>{request.postData.mimeType}</Value>
+              <Value>{highlightText(request.postData.mimeType, inspectorSearchTerm)}</Value>
             </InfoGrid>
             {request.postData.text ? (
-              <CodeBlock>{request.postData.text}</CodeBlock>
+              <CodeBlock>{highlightText(request.postData.text, inspectorSearchTerm)}</CodeBlock>
             ) : null}
           </>
         )}
@@ -588,8 +715,8 @@ export const RequestInspector = () => {
             <tbody>
               {request.postData.params.map((param, index) => (
                 <tr key={index}>
-                  <Td>{param.name}</Td>
-                  <Td>{param.value || 'N/A'}</Td>
+                  <Td>{highlightText(param.name, inspectorSearchTerm)}</Td>
+                  <Td>{highlightText(param.value || 'N/A', inspectorSearchTerm)}</Td>
                 </tr>
               ))}
             </tbody>
@@ -629,13 +756,13 @@ export const RequestInspector = () => {
             </SectionHeader>
             <InfoGrid>
               <Label>MIME Type:</Label>
-              <Value>{content.mimeType}</Value>
+              <Value>{highlightText(content.mimeType, inspectorSearchTerm)}</Value>
               <Label>Size:</Label>
-              <Value>{formatBytes(content.size)}</Value>
+              <Value>{highlightText(formatBytes(content.size), inspectorSearchTerm)}</Value>
               {content.encoding && (
                 <>
                   <Label>Encoding:</Label>
-                  <Value>{content.encoding}</Value>
+                  <Value>{highlightText(content.encoding, inspectorSearchTerm)}</Value>
                 </>
               )}
             </InfoGrid>
@@ -651,18 +778,18 @@ export const RequestInspector = () => {
             <SectionTitle>Response Content</SectionTitle>
             <InfoGrid>
               <Label>MIME Type:</Label>
-              <Value>{content.mimeType}</Value>
+              <Value>{highlightText(content.mimeType, inspectorSearchTerm)}</Value>
               <Label>Size:</Label>
-              <Value>{formatBytes(content.size)}</Value>
+              <Value>{highlightText(formatBytes(content.size), inspectorSearchTerm)}</Value>
               {content.encoding && (
                 <>
                   <Label>Encoding:</Label>
-                  <Value>{content.encoding}</Value>
+                  <Value>{highlightText(content.encoding, inspectorSearchTerm)}</Value>
                 </>
               )}
             </InfoGrid>
             {content.text && content.encoding !== 'base64' ? (
-              <CodeBlock>{content.text}</CodeBlock>
+              <CodeBlock>{highlightText(content.text, inspectorSearchTerm)}</CodeBlock>
             ) : content.encoding === 'base64' ? (
               <EmptyState>Binary content (base64 encoded)</EmptyState>
             ) : (
@@ -704,7 +831,7 @@ export const RequestInspector = () => {
         ))}
         <InfoGrid style={{ marginTop: '1rem' }}>
           <Label>Total:</Label>
-          <Value>{formatDuration(totalTime)}</Value>
+          <Value>{highlightText(formatDuration(totalTime), inspectorSearchTerm)}</Value>
         </InfoGrid>
       </Section>
     );
@@ -754,7 +881,7 @@ export const RequestInspector = () => {
           <X />
         </CloseButton>
       </Tabs>
-      <Content>{renderContent()}</Content>
+      <Content ref={contentRef}>{renderContent()}</Content>
     </Container>
   );
 };

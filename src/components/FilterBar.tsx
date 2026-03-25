@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import styled from 'styled-components';
-import { List, AlertTriangle, XCircle, AlertCircle, Pencil, X, Plus } from 'lucide-react';
-import type { FilterType } from '../types/filters';
+import { List, AlertTriangle, XCircle, AlertCircle, Pencil, X, Plus, ChevronDown } from 'lucide-react';
+import type { FilterType, SearchScope } from '../types/filters';
 import { BUILT_IN_FILTERS } from '../types/filters';
 import { useCustomFiltersStore } from '../stores/customFiltersStore';
 import { FilterManageModal } from './FilterManageModal';
@@ -41,7 +41,9 @@ const FilterBarContainer = styled.div`
 `;
 
 const SearchInput = styled.input`
-  width: 320px;
+  width: 100%;
+  min-width: 0;
+  max-width: 320px;
   padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.sm};
   background-color: ${({ theme }) => theme.colors.background};
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -62,6 +64,93 @@ const SearchInput = styled.input`
     color: ${({ theme }) => theme.colors.textMuted};
   }
 `;
+
+const SearchActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.md};
+  flex: 0 1 600px;
+  min-width: 0;
+  justify-content: flex-end;
+`;
+
+const SearchControls = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+  flex: 1 1 auto;
+  min-width: 0;
+`;
+
+const ScopeDropdown = styled.div`
+  position: relative;
+  flex-shrink: 0;
+`;
+
+const ScopeButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.xs};
+  padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.sm};
+  background-color: ${({ theme }) => theme.colors.background};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.borderRadius.md};
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  white-space: nowrap;
+  cursor: pointer;
+`;
+
+const ScopeMenu = styled.div`
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 220px;
+  padding: ${({ theme }) => theme.spacing.sm};
+  background-color: ${({ theme }) => theme.colors.background};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.borderRadius.md};
+  box-shadow: ${({ theme }) => theme.shadows.md};
+  z-index: 1001;
+`;
+
+const ScopeOption = styled.label`
+  display: flex;
+  align-items: flex-start;
+  gap: ${({ theme }) => theme.spacing.sm};
+  padding: ${({ theme }) => theme.spacing.xs};
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  cursor: pointer;
+`;
+
+const ScopeOptionText = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`;
+
+const ScopeOptionDescription = styled.span`
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+`;
+
+const SEARCH_SCOPE_OPTIONS: Array<{
+  value: SearchScope;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: 'payload-response',
+    label: 'Payload + Response',
+    description: 'Search request payloads and response bodies only.',
+  },
+  {
+    value: 'all',
+    label: 'Entire Request',
+    description: 'Search headers, cookies, timings, URLs, payloads, and responses.',
+  },
+];
 
 const FilterChipsContainer = styled.div`
   display: flex;
@@ -213,7 +302,9 @@ interface FilterBarProps {
   onFilterChange: (filter: FilterType) => void;
   filterCounts: Record<FilterType, number>;
   searchTerm: string;
+  searchScope: SearchScope;
   onSearchChange: (term: string) => void;
+  onSearchScopeChange: (scope: SearchScope) => void;
 }
 
 export const FilterBar = ({
@@ -221,11 +312,14 @@ export const FilterBar = ({
   onFilterChange,
   filterCounts,
   searchTerm,
-  onSearchChange
+  searchScope,
+  onSearchChange,
+  onSearchScopeChange,
 }: FilterBarProps) => {
   const { filters: customFilters, deleteFilter } = useCustomFiltersStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFilter, setEditingFilter] = useState<CustomFilter | undefined>();
+  const [isScopeMenuOpen, setIsScopeMenuOpen] = useState(false);
 
   const handleEditFilter = (filter: CustomFilter, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -257,15 +351,6 @@ export const FilterBar = ({
   return (
     <>
       <FilterBarContainer>
-        <SearchInput
-          type="text"
-          placeholder="Search endpoints..."
-          value={searchTerm}
-          onChange={(e) => onSearchChange(e.target.value)}
-        />
-
-        <Divider />
-
         <FilterChipsContainer>
           {/* Built-in Filters */}
           {BUILT_IN_FILTERS.map((option) => (
@@ -315,9 +400,60 @@ export const FilterBar = ({
           ))}
         </FilterChipsContainer>
 
-        <AddFilterButton onClick={handleAddFilter}>
-          <Plus size={14} /> Add Filter
-        </AddFilterButton>
+        <Divider />
+
+        <SearchActions>
+          <SearchControls>
+            <SearchInput
+              type="text"
+              placeholder={
+                searchScope === 'payload-response'
+                  ? 'Search payload and response...'
+                  : 'Search across the full HAR...'
+              }
+              value={searchTerm}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+
+            <ScopeDropdown>
+              <ScopeButton
+                type="button"
+                onClick={() => setIsScopeMenuOpen((open) => !open)}
+                aria-haspopup="menu"
+                aria-expanded={isScopeMenuOpen}
+              >
+                {SEARCH_SCOPE_OPTIONS.find((option) => option.value === searchScope)?.label}
+                <ChevronDown size={14} />
+              </ScopeButton>
+
+              {isScopeMenuOpen && (
+                <ScopeMenu role="menu">
+                  {SEARCH_SCOPE_OPTIONS.map((option) => (
+                    <ScopeOption key={option.value}>
+                      <input
+                        type="radio"
+                        name="search-scope"
+                        checked={searchScope === option.value}
+                        onChange={() => {
+                          onSearchScopeChange(option.value);
+                          setIsScopeMenuOpen(false);
+                        }}
+                      />
+                      <ScopeOptionText>
+                        <span>{option.label}</span>
+                        <ScopeOptionDescription>{option.description}</ScopeOptionDescription>
+                      </ScopeOptionText>
+                    </ScopeOption>
+                  ))}
+                </ScopeMenu>
+              )}
+            </ScopeDropdown>
+          </SearchControls>
+
+          <AddFilterButton onClick={handleAddFilter}>
+            <Plus size={14} /> Add Filter
+          </AddFilterButton>
+        </SearchActions>
       </FilterBarContainer>
 
       <FilterManageModal
